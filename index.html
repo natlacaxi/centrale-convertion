@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centrale de Convertion</title>
+<style>
+:root{
+  --bg-0:#06090c;
+  --bg-1:#0b1117;
+  --bg-2:#111a22;
+  --panel:#0e161d;
+  --grid:#1a2530;
+  --phosphor:#5CFFB0;
+  --phosphor-dim:#2c8a63;
+  --amber:#FFB454;
+  --cyan:#4FD2FF;
+  --violet:#B98CFF;
+  --red:#FF5C7A;
+  --text:#DCEAE7;
+  --text-dim:#7C9490;
+  --mono:'JetBrains Mono','Roboto Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --disp:'Space Grotesk',ui-sans-serif,system-ui;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(circle at 15% 0%, rgba(92,255,176,0.05), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(79,210,255,0.05), transparent 45%),
+    var(--bg-0);
+  color:var(--text);
+  font-family:var(--mono);
+  line-height:1.5;
+  overflow-x:hidden;
+}
+@font-face{font-family:'Space Grotesk';src:local('Space Grotesk');}
+
+/* scanline / grid texture */
+.grid-overlay{
+  position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.5;
+  background-image:
+    linear-gradient(rgba(92,255,176,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92,255,176,0.035) 1px, transparent 1px);
+  background-size:36px 36px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 90%);
+}
+
+a{color:var(--cyan);}
+h1,h2,h3{font-family:var(--disp); font-weight:700; letter-spacing:-0.01em; margin:0;}
+
+.container{max-width:1320px; margin:0 auto; padding:0 24px;}
+
+/* ============ HEADER / HERO ============ */
+header.top{
+  position:sticky; top:0; z-index:50;
+  background:rgba(7,11,14,0.85);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--grid);
+}
+.topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 24px; max-width:1320px; margin:0 auto;}
+.brand{display:flex; align-items:center; gap:10px; font-family:var(--disp); font-size:1.05rem; letter-spacing:0.02em;}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--phosphor); box-shadow:0 0 10px var(--phosphor), 0 0 24px var(--phosphor);}
+.brand b{color:var(--phosphor);}
+nav.tabs{display:flex; gap:4px; flex-wrap:wrap;}
+nav.tabs button{
+  background:transparent; border:1px solid transparent; color:var(--text-dim);
+  font-family:var(--mono); font-size:0.78rem; letter-spacing:0.03em; text-transform:uppercase;
+  padding:9px 14px; border-radius:6px; cursor:pointer; transition:all .15s ease;
+}
+nav.tabs button:hover{color:var(--text); border-color:var(--grid);}
+nav.tabs button.active{color:var(--bg-0); background:var(--phosphor); font-weight:600; box-shadow:0 0 16px rgba(92,255,176,0.4);}
+
+.hero{
+  padding:64px 24px 40px; max-width:1320px; margin:0 auto; position:relative; z-index:1;
+  display:grid; grid-template-columns:1.3fr 1fr; gap:40px; align-items:center;
+}
+.hero-eyebrow{
+  color:var(--phosphor); font-size:0.75rem; letter-spacing:0.18em; text-transform:uppercase;
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.hero-eyebrow::before{content:''; width:26px; height:1px; background:var(--phosphor);}
+.hero h1{
+  font-size:clamp(2.4rem, 5vw, 4rem); line-height:1.02; color:#fff;
+}
+.hero h1 em{
+  font-style:normal; color:var(--phosphor); text-shadow:0 0 22px rgba(92,255,176,0.5);
+}
+.hero p.lead{color:var(--text-dim); max-width:560px; font-size:1.02rem; margin-top:18px; font-family:var(--mono);}
+.hero-stats{display:flex; gap:28px; margin-top:30px; flex-wrap:wrap;}
+.hero-stats .stat b{display:block; font-family:var(--disp); font-size:1.6rem; color:var(--cyan);}
+.hero-stats .stat span{font-size:0.72rem; color:var(--text-dim); letter-spacing:0.05em; text-transform:uppercase;}
+
+/* live readout panel signature element */
+.readout{
+  background:var(--panel); border:1px solid var(--grid); border-radius:10px; padding:22px;
+  box-shadow:0 0 0 1px rgba(92,255,176,0.05), 0 20px 60px rgba(0,0,0,0.5);
+  position:relative; overflow:hidden;
+}
+.readout::before{
+  content:'LIVE'; position:absolute; top:12px; right:14px; font-size:0.62rem; color:var(--red);
+  letter-spacing:0.15em; animation:blink 1.6s infinite;
+}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
+.readout .label{font-size:0.68rem; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px;}
+.readout .value{font-family:var(--disp); font-size:2.1rem; color:var(--phosphor); text-shadow:0 0 18px rgba(92,255,176,0.35); word-break:break-all;}
+.readout .sub{font-size:0.8rem; color:var(--text-dim); margin-top:4px;}
+.readout hr{border:none; border-top:1px dashed var(--grid); margin:16px 0;}
+.readout .mini-row{display:flex; justify-content:space-between; font-size:0.78rem; padding:6px 0; border-bottom:1px solid var(--grid);}
+.readout .mini-row span:first-child{color:var(--text-dim);}
+.readout .mini-row span:last-child{color:var(--cyan);}
+
+@media (max-width:920px){.hero{grid-template-columns:1fr;}}
+
+/* ============ SECTIONS ============ */
+section.panel-section{padding:20px 24px 70px; max-width:1320px; margin:0 auto; position:relative; z-index:1;}
+.section-head{display:flex; align-items:baseline; gap:14px; margin-bottom:22px; flex-wrap:wrap;}
+.section-head .tag{font-size:0.68rem; color:var(--bg-0); background:var(--phosphor); padding:3px 8px; border-radius:4px; letter-spacing:0.08em; font-weight:700;}
+.section-head h2{font-size:1.7rem; color:#fff;}
+.section-head p{color:var(--text-dim); font-size:0.85rem; margin:0;}
+
+.hidden{display:none !important;}
+
+.panel{
+  background:var(--panel); border:1px solid var(--grid); border-radius:10px; padding:24px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.35);
+}
+
+/* ============ CONVERTER ============ */
+.conv-grid{display:grid; grid-template-columns:220px 1fr; gap:22px;}
+@media (max-width:800px){.conv-grid{grid-template-columns:1fr;}}
+.cat-list{display:flex; flex-direction:column; gap:4px;}
+.cat-list button{
+  text-align:left; background:transparent; border:1px solid transparent; color:var(--text-dim);
+  padding:10px 12px; border-radius:6px; cursor:pointer; font-family:var(--mono); font-size:0.82rem;
+  display:flex; align-items:center; gap:10px; transition:all .15s;
+}
+.cat-list button:hover{background:var(--bg-2); color:var(--text);}
+.cat-list button.active{background:rgba(92,255,176,0.08); color:var(--phosphor); border-color:var(--phosphor-dim);}
+.cat-list .ic{width:8px; height:8px; border-radius:2px; background:var(--grid); flex:none;}
+.cat-list button.active .ic{background:var(--phosphor);}
+
+.conv-body label{font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:6px;}
+.conv-row{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:end; margin-bottom:16px;}
+.swap-btn{
+  background:var(--bg-2); border:1px solid var(--grid); color:var(--cyan); border-radius:50%;
+  width:38px; height:38px; cursor:pointer; font-size:1rem; align-self:center; margin-top:20px;
+  transition:all .15s;
+}
+.swap-btn:hover{border-color:var(--cyan); box-shadow:0 0 12px rgba(79,210,255,0.4);}
+@media (max-width:700px){.conv-row{grid-template-columns:1fr;} .swap-btn{margin:0 auto;}}
+
+input[type=number], input[type=text], select, textarea{
+  width:100%; background:var(--bg-2); border:1px solid var(--grid); color:var(--text);
+  font-family:var(--mono); font-size:1rem; padding:12px 12px; border-radius:6px; outline:none;
+  transition:border-color .15s;
+}
+input[type=number]:focus, input[type=text]:focus, select:focus, textarea:focus{
+  border-color:var(--phosphor); box-shadow:0 0 0 3px rgba(92,255,176,0.12);
+}
+select{appearance:none; cursor:pointer;}
+
+.conv-result{
+  margin-top:18px; background:var(--bg-2); border:1px solid var(--grid); border-radius:8px; padding:16px;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+}
+.conv-result .r-val{font-family:var(--disp); font-size:1.5rem; color:var(--phosphor); word-break:break-all;}
+.conv-result .r-note{font-size:0.75rem; color:var(--text-dim);}
+
+.all-units-table{margin-top:20px; max-height:260px; overflow-y:auto; border:1px solid var(--grid); border-radius:8px;}
+.all-units-table table{width:100%; border-collapse:collapse; font-size:0.82rem;}
+.all-units-table th, .all-units-table td{text-align:left; padding:8px 12px; border-bottom:1px solid var(--grid);}
+.all-units-table th{color:var(--text-dim); position:sticky; top:0; background:var(--bg-2); text-transform:uppercase; font-size:0.68rem; letter-spacing:0.06em;}
+.all-units-table td.val{color:var(--cyan); font-family:var(--mono);}
+
+/* ============ CALCULATOR ============ */
+.calc-wrap{display:grid; grid-template-columns:1fr 380px; gap:22px;}
+@media (max-width:920px){.calc-wrap{grid-template-columns:1fr;}}
+.calc-screen{
+  background:linear-gradient(180deg, #0b1e17, #081713);
+  border:1px solid var(--phosphor-dim); border-radius:10px; padding:20px;
+  box-shadow:inset 0 0 30px rgba(92,255,176,0.06);
+}
+.calc-expr{color:var(--text-dim); font-size:0.95rem; min-height:1.4em; word-break:break-all;}
+.calc-result{color:var(--phosphor); font-family:var(--disp); font-size:2.4rem; text-shadow:0 0 20px rgba(92,255,176,0.4); min-height:1.3em; word-break:break-all;}
+.calc-input{
+  margin-top:14px; width:100%; background:transparent; border:none; border-top:1px dashed var(--phosphor-dim);
+  color:var(--text); font-family:var(--mono); font-size:1.05rem; padding-top:12px;
+}
+.calc-input:focus{outline:none;}
+
+.keypad{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:16px;}
+.keypad button{
+  background:var(--bg-2); border:1px solid var(--grid); color:var(--text); border-radius:6px;
+  padding:12px 0; font-family:var(--mono); font-size:0.92rem; cursor:pointer; transition:all .1s;
+}
+.keypad button:hover{border-color:var(--phosphor); color:var(--phosphor);}
+.keypad button.op{color:var(--amber);}
+.keypad button.fn{color:var(--cyan); font-size:0.78rem;}
+.keypad button.eq{background:var(--phosphor); color:var(--bg-0); font-weight:700; grid-column:span 2;}
+.keypad button.clear{color:var(--red);}
+
+.calc-history{margin-top:0;}
+.calc-history h3{font-size:0.85rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;}
+.fn-docs{max-height:340px; overflow-y:auto; margin-bottom:20px; border:1px solid var(--grid); border-radius:8px;}
+.fn-doc-item{display:flex; gap:12px; padding:9px 12px; border-bottom:1px solid var(--grid); align-items:baseline;}
+.fn-doc-item:last-child{border-bottom:none;}
+.fn-doc-item .fn-name{color:var(--cyan); font-size:0.82rem; white-space:nowrap; min-width:118px; flex:none;}
+.fn-doc-item .fn-desc{color:var(--text-dim); font-size:0.78rem; line-height:1.5;}
+.hist-item{
+  border-bottom:1px solid var(--grid); padding:9px 0; font-size:0.82rem; cursor:pointer;
+}
+.hist-item:hover{color:var(--phosphor);}
+.hist-item .h-expr{color:var(--text-dim);}
+.hist-item .h-res{color:var(--cyan); float:right;}
+.mode-tabs{display:flex; gap:6px; margin-bottom:14px;}
+.mode-tabs button{
+  flex:1; background:var(--bg-2); border:1px solid var(--grid); color:var(--text-dim); padding:8px; border-radius:6px;
+  cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;
+}
+.mode-tabs button.active{color:var(--phosphor); border-color:var(--phosphor-dim); background:rgba(92,255,176,0.06);}
+
+/* ============ EQUATIONS / VECTORS ============ */
+.eq-tabs{display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap;}
+.eq-tabs button{
+  background:var(--bg-2); border:1px solid var(--grid); color:var(--text-dim); padding:9px 16px; border-radius:6px;
+  cursor:pointer; font-size:0.8rem;
+}
+.eq-tabs button.active{color:var(--violet); border-color:var(--violet); background:rgba(185,140,255,0.08);}
+.eq-panel{display:none;}
+.eq-panel.active{display:block;}
+.field-row{display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; align-items:center;}
+.field-row label{font-size:0.78rem; color:var(--text-dim); min-width:70px;}
+.field-row input{flex:1; min-width:80px;}
+.btn{
+  background:var(--violet); color:#160a26; border:none; padding:12px 22px; border-radius:6px; font-weight:700;
+  cursor:pointer; font-family:var(--mono); font-size:0.85rem; letter-spacing:0.03em; transition:all .15s;
+}
+.btn:hover{box-shadow:0 0 18px rgba(185,140,255,0.5);}
+.btn.alt{background:var(--cyan); color:#031820;}
+.btn.alt:hover{box-shadow:0 0 18px rgba(79,210,255,0.5);}
+.result-box{
+  margin-top:18px; background:var(--bg-2); border:1px solid var(--grid); border-left:3px solid var(--violet);
+  border-radius:6px; padding:16px; font-size:0.9rem; white-space:pre-wrap; min-height:24px;
+}
+.matrix-grid{display:grid; gap:8px; margin-bottom:14px;}
+.small-note{font-size:0.72rem; color:var(--text-dim); margin-top:6px;}
+.count-controls{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+.count-controls button{background:var(--bg-2); border:1px solid var(--grid); color:var(--text); width:32px; height:32px; border-radius:6px; cursor:pointer;}
+
+footer{
+  border-top:1px solid var(--grid); padding:30px 24px; text-align:center; color:var(--text-dim); font-size:0.78rem;
+  position:relative; z-index:1;
+}
+footer b{color:var(--phosphor);}
+
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-track{background:var(--bg-1);}
+::-webkit-scrollbar-thumb{background:var(--grid); border-radius:4px;}
+
+@media (max-width:600px){
+  .topbar{flex-direction:column; gap:12px; align-items:flex-start;}
+  nav.tabs{width:100%; overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px;}
+  .hero{padding-top:36px;}
+}
+
+/* ============ ANIMATIONS MODERNES ============ */
+@keyframes floatBlob{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  33%{ transform:translate(30px,-20px) scale(1.08); }
+  66%{ transform:translate(-20px,15px) scale(0.95); }
+}
+.ambient-blob{
+  position:fixed; border-radius:50%; filter:blur(80px); pointer-events:none; z-index:0;
+  animation:floatBlob 22s ease-in-out infinite;
+}
+.ambient-blob.b1{width:420px; height:420px; top:-120px; left:-100px; background:radial-gradient(circle, rgba(92,255,176,0.14), transparent 70%);}
+.ambient-blob.b2{width:520px; height:520px; top:20%; right:-160px; background:radial-gradient(circle, rgba(79,210,255,0.12), transparent 70%); animation-delay:-8s;}
+.ambient-blob.b3{width:380px; height:380px; bottom:-100px; left:30%; background:radial-gradient(circle, rgba(185,140,255,0.10), transparent 70%); animation-delay:-14s;}
+
+@keyframes fadeSlideIn{
+  from{ opacity:0; transform:translateY(14px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+.view:not(.hidden){ animation:fadeSlideIn .5s cubic-bezier(.2,.7,.3,1) both; }
+.panel, .readout{ transition:transform .25s ease, box-shadow .25s ease; }
+.panel:hover{ box-shadow:0 14px 50px rgba(0,0,0,0.45), 0 0 0 1px rgba(92,255,176,0.06); }
+.btn, .swap-btn, .keypad button, .cat-list button, nav.tabs button, .eq-tabs button, .mode-tabs button{
+  transition:all .18s cubic-bezier(.2,.7,.3,1);
+}
+.btn:active{ transform:scale(0.96); }
+.hero-stats .stat b{ animation:fadeSlideIn .6s ease both; }
+
+@keyframes pulseGlow{
+  0%,100%{ box-shadow:0 0 0 0 rgba(92,255,176,0.5); }
+  50%{ box-shadow:0 0 0 8px rgba(92,255,176,0); }
+}
+
+/* ============ DESCRIPTIONS D'UNITÉS / CATÉGORIES ============ */
+.cat-desc{
+  font-size:0.78rem; color:var(--text-dim); background:var(--bg-2); border:1px solid var(--grid);
+  border-radius:8px; padding:12px 14px; margin-bottom:16px; border-left:3px solid var(--phosphor-dim);
+  line-height:1.6;
+}
+.cat-desc b{ color:var(--phosphor); }
+.unit-desc-row{
+  display:flex; gap:16px; margin-top:8px; flex-wrap:wrap;
+}
+.unit-desc-box{
+  flex:1; min-width:220px; font-size:0.74rem; color:var(--text-dim); background:var(--bg-2);
+  border:1px solid var(--grid); border-radius:6px; padding:9px 11px;
+}
+.unit-desc-box b{ color:var(--cyan); display:block; margin-bottom:3px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; }
+
+/* ============ BOUTON CONVERT'AI (flottant + inline) ============ */
+.ai-ask-btn{
+  display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(185,140,255,0.16), rgba(79,210,255,0.16));
+  border:1px solid var(--violet); color:var(--violet); padding:10px 16px; border-radius:8px; cursor:pointer;
+  font-family:var(--mono); font-size:0.78rem; font-weight:600; letter-spacing:0.02em; margin-top:14px;
+}
+.ai-ask-btn:hover{ background:linear-gradient(135deg, rgba(185,140,255,0.28), rgba(79,210,255,0.28)); box-shadow:0 0 18px rgba(185,140,255,0.35); }
+.ai-ask-btn .spark{ animation:pulseGlow 2.4s infinite; border-radius:50%; }
+
+.ai-fab{
+  position:fixed; bottom:26px; right:26px; z-index:200;
+  background:linear-gradient(135deg, var(--violet), var(--cyan)); color:#0a0f14; border:none;
+  width:60px; height:60px; border-radius:50%; cursor:pointer; font-size:1.5rem;
+  box-shadow:0 8px 30px rgba(185,140,255,0.45); display:flex; align-items:center; justify-content:center;
+  animation:pulseGlow 3s infinite;
+}
+.ai-fab:hover{ transform:scale(1.08) rotate(8deg); }
+
+.ai-modal-overlay{
+  position:fixed; inset:0; z-index:500; background:rgba(4,6,8,0.78); backdrop-filter:blur(8px);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  animation:fadeSlideIn .25s ease both;
+}
+.ai-modal-overlay.hidden{ display:none; }
+@keyframes borderFlow{
+  0%{ background-position:0% 50%; } 50%{ background-position:100% 50%; } 100%{ background-position:0% 50%; }
+}
+.ai-modal{
+  width:100%; max-width:660px; max-height:84vh; border-radius:18px; padding:2px;
+  background:linear-gradient(120deg, var(--violet), var(--cyan), var(--phosphor), var(--violet));
+  background-size:300% 300%; animation:borderFlow 8s ease infinite;
+  box-shadow:0 30px 90px rgba(0,0,0,0.65);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.ai-modal-inner{
+  background:linear-gradient(180deg, rgba(14,22,29,0.98), rgba(10,16,22,0.99));
+  border-radius:16px; display:flex; flex-direction:column; overflow:hidden; height:100%;
+}
+.ai-modal-head{
+  display:flex; align-items:center; justify-content:space-between; padding:18px 22px;
+  border-bottom:1px solid var(--grid); background:linear-gradient(135deg, rgba(185,140,255,0.10), rgba(79,210,255,0.06));
+}
+.ai-modal-head .ai-title{ display:flex; align-items:center; gap:12px; }
+.ai-modal-head .ai-avatar{
+  width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; background:linear-gradient(135deg, var(--violet), var(--cyan)); box-shadow:0 0 20px rgba(185,140,255,0.45);
+  animation:pulseGlow 2.6s infinite;
+}
+.ai-modal-head b{ color:#fff; font-family:var(--disp); font-size:1.1rem; display:block; }
+.ai-modal-head .ai-sub{ color:var(--text-dim); font-size:0.7rem; letter-spacing:0.03em; }
+.ai-modal-head button{ background:var(--bg-2); border:1px solid var(--grid); border-radius:8px; width:32px; height:32px; color:var(--text-dim); font-size:1rem; cursor:pointer; transition:all .15s; }
+.ai-modal-head button:hover{ color:var(--red); border-color:var(--red); }
+.ai-modal-body{ padding:20px 22px; overflow-y:auto; font-size:0.9rem; line-height:1.7; white-space:pre-wrap; }
+.ai-modal-body .ai-context{
+  font-size:0.74rem; color:var(--text-dim); background:var(--bg-2); border:1px solid var(--grid);
+  border-radius:10px; padding:12px 14px; margin-bottom:16px; white-space:pre-wrap; border-left:3px solid var(--cyan);
+}
+.ai-bubble-user{ background:rgba(79,210,255,0.08); border:1px solid rgba(79,210,255,0.25); border-radius:12px 12px 4px 12px; padding:10px 14px; margin:10px 0 6px auto; max-width:85%; font-size:0.86rem; }
+.ai-bubble-ai{ background:rgba(185,140,255,0.07); border:1px solid rgba(185,140,255,0.22); border-radius:12px 12px 12px 4px; padding:12px 16px; margin:6px auto 14px 0; max-width:92%; font-size:0.88rem; }
+.ai-bubble-ai .who{ color:var(--violet); font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+.ai-bubble-user .who{ color:var(--cyan); font-weight:700; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; text-align:right; }
+.ai-modal-foot{ padding:16px 22px; border-top:1px solid var(--grid); display:flex; gap:10px; background:rgba(255,255,255,0.01); }
+.ai-modal-foot input{ flex:1; border-radius:10px; }
+.ai-modal-foot button{ border-radius:10px; background:linear-gradient(135deg, var(--violet), var(--cyan)); color:#0a0f14; border:none; padding:0 22px; font-weight:700; cursor:pointer; transition:all .15s; }
+.ai-modal-foot button:hover{ box-shadow:0 0 18px rgba(185,140,255,0.5); transform:translateY(-1px); }
+.ai-loading{ display:flex; align-items:center; gap:10px; color:var(--text-dim); font-size:0.85rem; }
+.ai-loading .dot{ width:7px; height:7px; border-radius:50%; background:var(--violet); animation:blink 0.9s infinite; }
+.ai-loading .dot:nth-child(2){ animation-delay:0.15s; }
+.ai-loading .dot:nth-child(3){ animation-delay:0.3s; }
+
+/* ============ FORMULES PHYSIQUES ============ */
+.formula-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:18px; }
+.formula-card{
+  background:var(--bg-2); border:1px solid var(--grid); border-radius:10px; padding:18px;
+  transition:all .2s ease;
+}
+.formula-card:hover{ border-color:var(--amber); box-shadow:0 8px 26px rgba(255,180,84,0.12); }
+.formula-card .f-eq{ font-family:var(--disp); font-size:1.3rem; color:var(--amber); margin-bottom:6px; }
+.formula-card .f-name{ font-size:0.8rem; color:var(--text); font-weight:600; margin-bottom:6px; }
+.formula-card .f-desc{ font-size:0.76rem; color:var(--text-dim); line-height:1.55; margin-bottom:12px; }
+.formula-card .f-vars{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.formula-card .f-vars label{ font-size:0.68rem; color:var(--text-dim); display:block; margin-bottom:4px; text-transform:none; }
+.formula-card .f-vars > div{ flex:1; min-width:90px; }
+.formula-card .f-vars input, .formula-card .f-vars select{ padding:8px 10px; font-size:0.85rem; }
+.formula-card .f-result{
+  background:var(--bg-1); border:1px solid var(--amber); border-radius:6px; padding:10px 12px;
+  font-size:0.85rem; color:var(--amber); min-height:20px; font-family:var(--disp);
+}
+.formula-cat-title{ margin:26px 0 14px; color:#fff; font-family:var(--disp); font-size:1.1rem; display:flex; align-items:center; gap:10px; }
+.formula-cat-title::after{ content:''; flex:1; height:1px; background:var(--grid); }
+</style>
+</head>
+<body>
+
+<div class="grid-overlay"></div>
+<div class="ambient-blob b1"></div>
+<div class="ambient-blob b2"></div>
+<div class="ambient-blob b3"></div>
+
+<header class="top">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><b>Centrale de Convertion</b></div>
+    <nav class="tabs" id="navTabs">
+      <button class="active" data-view="home">Accueil</button>
+      <button data-view="convert">Convertisseur</button>
+      <button data-view="calc">Calculatrice</button>
+      <button data-view="equations">Équations & Vecteurs</button>
+      <button data-view="formules">Formules</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ================= BOUTON FLOTTANT CONVERT'AI ================= -->
+<button class="ai-fab" id="aiFab" title="Demander à Convert'AI">✨</button>
+
+<!-- ================= MODAL CONVERT'AI ================= -->
+<div class="ai-modal-overlay hidden" id="aiModalOverlay">
+  <div class="ai-modal">
+   <div class="ai-modal-inner">
+    <div class="ai-modal-head">
+      <div class="ai-title">
+        <div class="ai-avatar">✨</div>
+        <div><b>Convert'AI</b><div class="ai-sub">Assistant scientifique — propulsé par OpenRouter</div></div>
+      </div>
+      <button id="aiModalClose">✕</button>
+    </div>
+    <div class="ai-modal-body" id="aiModalBody">
+      <div class="small-note">Pose ta question à Convert'AI à propos du calcul en cours, ou de tout autre sujet de conversion, calcul, équation ou physique.</div>
+    </div>
+    <div class="ai-modal-foot">
+      <input type="text" id="aiModalInput" placeholder="Pose ta question à Convert'AI…">
+      <button id="aiModalSend">Envoyer</button>
+    </div>
+   </div>
+  </div>
+</div>
+
+<!-- ================= HOME / HERO ================= -->
+<div id="view-home" class="view">
+<div class="hero">
+  <div>
+    <div class="hero-eyebrow">Console scientifique unifiée</div>
+    <h1>Convertis. Calcule.<br><em>Résous tout.</em></h1>
+    <p class="lead">Une seule console pour toutes les unités de longueur, masse, temps, volume, énergie, données — plus une calculatrice scientifique surpuissante et un moteur de résolution d'équations et de vecteurs, du niveau collège jusqu'à l'ingénierie.</p>
+    <div class="hero-stats">
+      <div class="stat"><b id="statCats">14</b><span>Catégories d'unités</span></div>
+      <div class="stat"><b id="statUnits">150+</b><span>Unités disponibles</span></div>
+      <div class="stat"><b>∞</b><span>Précision flottante</span></div>
+    </div>
+    <div style="margin-top:32px; display:flex; gap:12px; flex-wrap:wrap;">
+      <button class="btn" onclick="setView('convert')">Ouvrir le convertisseur</button>
+      <button class="btn alt" onclick="setView('calc')">Lancer la calculatrice</button>
+    </div>
+  </div>
+  <div class="readout">
+    <div class="label">Constante en vedette</div>
+    <div class="value" id="heroConstVal">299 792 458 m/s</div>
+    <div class="sub" id="heroConstName">Vitesse de la lumière dans le vide (c)</div>
+    <hr>
+    <div class="mini-row"><span>π</span><span>3.14159265358979</span></div>
+    <div class="mini-row"><span>e</span><span>2.71828182845905</span></div>
+    <div class="mini-row"><span>Nombre d'or φ</span><span>1.61803398874989</span></div>
+    <div class="mini-row"><span>Constante de Planck h</span><span>6.62607015×10⁻³⁴</span></div>
+    <div class="mini-row" style="border-bottom:none;"><span>Constante gravitationnelle G</span><span>6.67430×10⁻¹¹</span></div>
+  </div>
+</div>
+
+<section class="panel-section">
+  <div class="section-head"><span class="tag">01</span><h2>Ce que couvre la console</h2></div>
+  <div class="panel" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0;">
+    <div style="padding:12px 16px; border-right:1px solid var(--grid); border-bottom:1px solid var(--grid);"><b style="color:var(--phosphor)">Conversion</b><div class="small-note">Longueur, masse, temps, volume, surface, vitesse, température, pression, énergie, puissance, données, angle, devise-ratio, densité.</div></div>
+    <div style="padding:12px 16px; border-right:1px solid var(--grid); border-bottom:1px solid var(--grid);"><b style="color:var(--cyan)">Calcul</b><div class="small-note">Expressions libres, trigonométrie, logarithmes, puissances, racines, factorielles, mémoire, historique.</div></div>
+    <div style="padding:12px 16px; border-bottom:1px solid var(--grid);"><b style="color:var(--violet)">Équations</b><div class="small-note">Linéaire, quadratique, systèmes 2×2/3×3, vecteurs 2D/3D (somme, produit scalaire, produit vectoriel, norme, angle).</div></div>
+  </div>
+</section>
+</div>
+
+<!-- ================= CONVERTER ================= -->
+<div id="view-convert" class="view hidden">
+<section class="panel-section" style="padding-top:36px;">
+  <div class="section-head"><span class="tag">CONV</span><h2>Convertisseur universel</h2><p>Sélectionne une grandeur, entre une valeur, obtiens toutes les unités instantanément.</p></div>
+
+  <div class="conv-grid">
+    <div class="cat-list" id="catList"></div>
+
+    <div class="conv-body panel">
+      <div class="cat-desc" id="catDescBox"><b id="catDescTitle">Longueur</b> — <span id="catDescText"></span></div>
+      <div class="conv-row">
+        <div>
+          <label>Valeur</label>
+          <input type="number" id="convInputVal" value="1" step="any">
+          <select id="convFromUnit" style="margin-top:8px;"></select>
+        </div>
+        <button class="swap-btn" id="swapBtn" title="Inverser">⇄</button>
+        <div>
+          <label>Résultat</label>
+          <input type="text" id="convOutputVal" readonly value="">
+          <select id="convToUnit" style="margin-top:8px;"></select>
+        </div>
+      </div>
+
+      <div class="conv-result">
+        <div>
+          <div class="r-val" id="convResultBig">—</div>
+          <div class="r-note" id="convResultNote"></div>
+        </div>
+      </div>
+
+      <div class="all-units-table">
+        <table>
+          <thead><tr><th>Unité</th><th>Valeur équivalente</th></tr></thead>
+          <tbody id="allUnitsBody"></tbody>
+        </table>
+      </div>
+
+      <div class="unit-desc-row">
+        <div class="unit-desc-box"><b id="fromUnitDescLabel">Unité de départ</b><span id="fromUnitDesc"></span></div>
+        <div class="unit-desc-box"><b id="toUnitDescLabel">Unité d'arrivée</b><span id="toUnitDesc"></span></div>
+      </div>
+
+      <button class="ai-ask-btn" onclick="askAIAbout('convert')"><span class="spark">✨</span>Demander à Convert'AI à propos de cette conversion</button>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ================= CALCULATOR ================= -->
+<div id="view-calc" class="view hidden">
+<section class="panel-section" style="padding-top:36px;">
+  <div class="section-head"><span class="tag">CALC</span><h2>Calculatrice scientifique</h2><p>Tape une expression complète — parenthèses, fonctions, constantes — et valide avec Entrée.</p></div>
+
+  <div class="calc-wrap">
+    <div>
+      <div class="calc-screen">
+        <div class="calc-expr" id="calcExprLine">0</div>
+        <div class="calc-result" id="calcResultLine">0</div>
+        <input type="text" class="calc-input" id="calcInput" placeholder="ex: sin(pi/4) + sqrt(2)^2 * 5" autocomplete="off">
+      </div>
+
+      <div class="keypad" id="keypad"></div>
+    </div>
+
+    <div class="panel calc-history">
+      <h3>Fonctions disponibles — avec explication</h3>
+      <div class="fn-docs" id="fnDocsList"></div>
+      <h3>Historique</h3>
+      <div id="histList"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('calc')" style="width:100%; justify-content:center;"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ================= EQUATIONS / VECTORS ================= -->
+<div id="view-equations" class="view hidden">
+<section class="panel-section" style="padding-top:36px;">
+  <div class="section-head"><span class="tag">SOLVE</span><h2>Équations & Vecteurs</h2><p>Du 1er degré aux systèmes linéaires, plus l'algèbre vectorielle 2D/3D.</p></div>
+
+  <div class="eq-tabs" id="eqTabs">
+    <button class="active" data-eq="linear">Équation linéaire (ax+b=0)</button>
+    <button data-eq="quad">Équation quadratique (ax²+bx+c=0)</button>
+    <button data-eq="sys2">Système 2×2</button>
+    <button data-eq="sys3">Système 3×3</button>
+    <button data-eq="cubic">Équation cubique (ax³+bx²+cx+d=0)</button>
+    <button data-eq="stats">Statistiques (série de nombres)</button>
+    <button data-eq="vec">Vecteurs 2D/3D</button>
+  </div>
+
+  <div class="panel">
+    <div class="eq-panel active" id="eq-linear">
+      <div class="field-row"><label>a</label><input type="number" id="lin_a" value="2"><label>b</label><input type="number" id="lin_b" value="-8"></div>
+      <div class="small-note">Résout ax + b = 0</div>
+      <button class="btn" onclick="solveLinear()" style="margin-top:14px;">Résoudre</button>
+      <div class="result-box" id="lin_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('lin')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+
+    <div class="eq-panel" id="eq-quad">
+      <div class="field-row"><label>a</label><input type="number" id="q_a" value="1"><label>b</label><input type="number" id="q_b" value="-3"><label>c</label><input type="number" id="q_c" value="2"></div>
+      <div class="small-note">Résout ax² + bx + c = 0 (discriminant, racines réelles ou complexes)</div>
+      <button class="btn" onclick="solveQuad()" style="margin-top:14px;">Résoudre</button>
+      <div class="result-box" id="q_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('q')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+
+    <div class="eq-panel" id="eq-sys2">
+      <div class="small-note" style="margin-bottom:10px;">a₁x + b₁y = c₁ &nbsp;&nbsp; / &nbsp;&nbsp; a₂x + b₂y = c₂</div>
+      <div class="field-row"><label>a₁,b₁,c₁</label><input type="number" id="s2_a1" value="2"><input type="number" id="s2_b1" value="1"><input type="number" id="s2_c1" value="5"></div>
+      <div class="field-row"><label>a₂,b₂,c₂</label><input type="number" id="s2_a2" value="1"><input type="number" id="s2_b2" value="-1"><input type="number" id="s2_c2" value="1"></div>
+      <button class="btn" onclick="solveSys2()">Résoudre</button>
+      <div class="result-box" id="s2_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('s2')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+
+    <div class="eq-panel" id="eq-sys3">
+      <div class="small-note" style="margin-bottom:10px;">Système 3×3 par méthode de Cramer</div>
+      <div class="field-row"><label>Ligne 1</label><input type="number" id="s3_00" value="2"><input type="number" id="s3_01" value="1"><input type="number" id="s3_02" value="-1"><input type="number" id="s3_c0" value="8"></div>
+      <div class="field-row"><label>Ligne 2</label><input type="number" id="s3_10" value="-3"><input type="number" id="s3_11" value="-1"><input type="number" id="s3_12" value="2"><input type="number" id="s3_c1" value="-11"></div>
+      <div class="field-row"><label>Ligne 3</label><input type="number" id="s3_20" value="-2"><input type="number" id="s3_21" value="1"><input type="number" id="s3_22" value="2"><input type="number" id="s3_c2" value="-3"></div>
+      <button class="btn" onclick="solveSys3()">Résoudre</button>
+      <div class="result-box" id="s3_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('s3')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+
+    <div class="eq-panel" id="eq-cubic">
+      <div class="field-row"><label>a</label><input type="number" id="c_a" value="1"><label>b</label><input type="number" id="c_b" value="-6"><label>c</label><input type="number" id="c_c" value="11"><label>d</label><input type="number" id="c_d" value="-6"></div>
+      <div class="small-note">Résout ax³ + bx² + cx + d = 0 par la méthode de Cardan (racine réelle garantie + recherche des deux autres)</div>
+      <button class="btn" onclick="solveCubic()" style="margin-top:14px;">Résoudre</button>
+      <div class="result-box" id="c_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('c')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+
+    <div class="eq-panel" id="eq-stats">
+      <label style="font-size:0.78rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:6px;">Série de nombres (séparés par des virgules ou espaces)</label>
+      <textarea id="stats_input" rows="3" placeholder="ex: 4, 8, 6, 5, 3, 7, 9, 2">4, 8, 6, 5, 3, 7, 9, 2</textarea>
+      <button class="btn" onclick="solveStats()" style="margin-top:14px;">Calculer</button>
+      <div class="result-box" id="stats_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('stats')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+
+    <div class="eq-panel" id="eq-vec">
+      <div class="mode-tabs" id="vecDimTabs">
+        <button class="active" data-dim="2">Vecteurs 2D</button>
+        <button data-dim="3">Vecteurs 3D</button>
+      </div>
+      <div class="field-row"><label>Vecteur A</label>
+        <input type="number" id="va_x" value="3"><input type="number" id="va_y" value="4"><input type="number" id="va_z" value="0" class="vec3-only">
+      </div>
+      <div class="field-row"><label>Vecteur B</label>
+        <input type="number" id="vb_x" value="1"><input type="number" id="vb_y" value="2"><input type="number" id="vb_z" value="0" class="vec3-only">
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+        <button class="btn" onclick="vecOp('add')">A + B</button>
+        <button class="btn" onclick="vecOp('sub')">A − B</button>
+        <button class="btn" onclick="vecOp('dot')">A · B (scalaire)</button>
+        <button class="btn" onclick="vecOp('cross')">A × B (vectoriel, 3D)</button>
+        <button class="btn alt" onclick="vecOp('norm')">‖A‖ et ‖B‖</button>
+        <button class="btn alt" onclick="vecOp('angle')">Angle(A,B)</button>
+      </div>
+      <div class="result-box" id="vec_result"></div>
+      <button class="ai-ask-btn" onclick="askAIAbout('vec')"><span class="spark">✨</span>Demander à Convert'AI</button>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ================= FORMULES ================= -->
+<div id="view-formules" class="view hidden">
+<section class="panel-section" style="padding-top:36px;">
+  <div class="section-head"><span class="tag">FORMULES</span><h2>Bibliothèque de formules physiques</h2><p>Entre les valeurs que tu connais, la formule calcule celle qui manque. Chaque carte explique la grandeur et son unité SI.</p></div>
+
+  <div class="formula-cat-title">⚡ Mécanique & cinématique</div>
+  <div class="formula-grid" id="grid-meca"></div>
+
+  <div class="formula-cat-title">🔋 Électricité</div>
+  <div class="formula-grid" id="grid-elec"></div>
+
+  <div class="formula-cat-title">🌡️ Énergie & thermodynamique</div>
+  <div class="formula-grid" id="grid-energie"></div>
+
+  <div class="formula-cat-title">🌊 Ondes & optique</div>
+  <div class="formula-grid" id="grid-ondes"></div>
+
+  <div class="formula-cat-title">🧪 Chimie</div>
+  <div class="formula-grid" id="grid-chimie"></div>
+
+  <div class="formula-cat-title">🪐 Astronomie & gravitation</div>
+  <div class="formula-grid" id="grid-astro"></div>
+
+  <div class="formula-cat-title">💻 Informatique & réseaux</div>
+  <div class="formula-grid" id="grid-info"></div>
+
+  <div class="formula-cat-title">🌀 Mécanique des fluides</div>
+  <div class="formula-grid" id="grid-fluides"></div>
+
+  <button class="ai-ask-btn" onclick="askAIAbout('formules')"><span class="spark">✨</span>Demander à Convert'AI d'expliquer une formule</button>
+</section>
+</div>
+
+<footer>
+  NEXUS·CALC — console de calcul construite pour un usage professionnel. Tous les calculs s'exécutent localement dans ton navigateur, aucune donnée n'est envoyée. <br>
+  Constantes physiques : valeurs officielles du <b>SI 2019</b>.
+</footer>
+
+<script src="config.js"></script>
+<script>
+/* =========================================================
+   NAVIGATION
+========================================================= */
+function setView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+  document.getElementById('view-'+name).classList.remove('hidden');
+  document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.getElementById('navTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  setView(btn.dataset.view);
+});
+
+/* =========================================================
+   CONVERTER DATA — factor = multiplier to reach the BASE unit
+========================================================= */
+const UNIT_DB = {
+  longueur: { base:'m', units:{
+    'mètre (m)':1, 'kilomètre (km)':1000, 'centimètre (cm)':0.01, 'millimètre (mm)':0.001,
+    'micromètre (µm)':1e-6, 'nanomètre (nm)':1e-9, 'mile (mi)':1609.344, 'yard (yd)':0.9144,
+    'pied (ft)':0.3048, 'pouce (in)':0.0254, 'année-lumière (ly)':9.4607e15, 'unité astronomique (AU)':1.495978707e11,
+    'parsec (pc)':3.0857e16, 'mille marin (NM)':1852
+  }},
+  masse: { base:'kg', units:{
+    'kilogramme (kg)':1, 'gramme (g)':0.001, 'milligramme (mg)':1e-6, 'tonne (t)':1000,
+    'livre (lb)':0.45359237, 'once (oz)':0.028349523125, 'stone (st)':6.35029, 'masse solaire (M☉)':1.989e30,
+    'masse terrestre (M⊕)':5.972e24
+  }},
+  temps: { base:'s', units:{
+    'seconde (s)':1, 'milliseconde (ms)':0.001, 'microseconde (µs)':1e-6, 'minute (min)':60,
+    'heure (h)':3600, 'jour (j)':86400, 'semaine':604800, 'mois (30j)':2592000,
+    'année (365j)':31536000, 'année julienne':31557600, 'siècle':3155760000
+  }},
+  volume: { base:'m3', units:{
+    'mètre cube (m³)':1, 'litre (L)':0.001, 'millilitre (mL)':1e-6, 'centilitre (cL)':1e-5,
+    'gallon US':0.00378541, 'gallon UK':0.00454609, 'pinte US':0.000473176,
+    'cuillère à soupe':1.4787e-5, 'cuillère à café':4.9289e-6, 'pied cube (ft³)':0.0283168,
+    'pouce cube (in³)':1.6387e-5, 'baril de pétrole':0.158987
+  }},
+  surface: { base:'m2', units:{
+    'mètre carré (m²)':1, 'kilomètre carré (km²)':1e6, 'centimètre carré (cm²)':0.0001,
+    'hectare (ha)':10000, 'acre':4046.8564224, 'pied carré (ft²)':0.09290304, 'mile carré':2589988.11
+  }},
+  vitesse: { base:'m/s', units:{
+    'mètre/seconde (m/s)':1, 'kilomètre/heure (km/h)':0.277778, 'mile/heure (mph)':0.44704,
+    'nœud (kn)':0.514444, "vitesse du son (Mach, ~343 m/s)":343, "vitesse de la lumière (c)":299792458
+  }},
+  temperature: { base:'K', special:true, units:['Celsius (°C)','Fahrenheit (°F)','Kelvin (K)','Rankine (°R)'] },
+  pression: { base:'Pa', units:{
+    'pascal (Pa)':1, 'kilopascal (kPa)':1000, 'bar':100000, 'atmosphère (atm)':101325,
+    'mmHg (Torr)':133.322, 'psi':6894.76, 'hectopascal (hPa)':100
+  }},
+  energie: { base:'J', units:{
+    'joule (J)':1, 'kilojoule (kJ)':1000, 'calorie (cal)':4.184, 'kilocalorie (kcal)':4184,
+    'wattheure (Wh)':3600, 'kilowattheure (kWh)':3.6e6, 'électronvolt (eV)':1.602176634e-19,
+    'BTU':1055.06, 'erg':1e-7, 'TNT (tonne)':4.184e9
+  }},
+  puissance: { base:'W', units:{
+    'watt (W)':1, 'kilowatt (kW)':1000, 'mégawatt (MW)':1e6, 'gigawatt (GW)':1e9,
+    'cheval-vapeur (ch)':735.499, 'horsepower (hp)':745.7, 'BTU/heure':0.293071
+  }},
+  donnees: { base:'octet', units:{
+    'bit':0.125, 'octet (byte)':1, 'kilooctet (Ko)':1000, 'kibioctet (Kio)':1024,
+    'mégaoctet (Mo)':1e6, 'mébioctet (Mio)':1048576, 'gigaoctet (Go)':1e9, 'gibioctet (Gio)':1073741824,
+    'téraoctet (To)':1e12, 'tébioctet (Tio)':1099511627776, 'pétaoctet (Po)':1e15
+  }},
+  angle: { base:'rad', units:{
+    'radian (rad)':1, 'degré (°)':0.0174533, 'grade (gon)':0.015708, 'tour complet':6.283185, "minute d'arc":0.000290888, "seconde d'arc":4.8481e-6
+  }},
+  frequence: { base:'Hz', units:{
+    'hertz (Hz)':1, 'kilohertz (kHz)':1000, 'mégahertz (MHz)':1e6, 'gigahertz (GHz)':1e9, 'tour/minute (rpm)':0.0166667
+  }},
+  force: { base:'N', units:{
+    'newton (N)':1, 'kilonewton (kN)':1000, 'dyne':1e-5, 'livre-force (lbf)':4.44822, 'kilogramme-force (kgf)':9.80665
+  }},
+  densite: { base:'kg/m3', units:{
+    'kg/m³':1, 'g/cm³':1000, 'g/mL':1000, 'kg/L':1000, 'lb/ft³':16.0185, 'lb/gal (US)':119.826
+  }},
+  carburant: { base:'L/100km', special:true, units:['L/100km','km/L','mpg (US)','mpg (UK)'] },
+  tension: { base:'V', units:{
+    'volt (V)':1, 'millivolt (mV)':0.001, 'kilovolt (kV)':1000, 'mégavolt (MV)':1e6
+  }},
+  courant: { base:'A', units:{
+    'ampère (A)':1, 'milliampère (mA)':0.001, 'microampère (µA)':1e-6, 'kiloampère (kA)':1000
+  }},
+  resistance: { base:'Ω', units:{
+    'ohm (Ω)':1, 'milliohm (mΩ)':0.001, 'kilohm (kΩ)':1000, 'mégohm (MΩ)':1e6
+  }},
+  luminosite: { base:'cd', units:{
+    'candela (cd)':1, 'lumen/sr':1, 'lux (à 1m, approx.)':1, 'candela internationale':1.0000005
+  }},
+  viscosite: { base:'Pa.s', units:{
+    'pascal-seconde (Pa·s)':1, 'poise (P)':0.1, 'centipoise (cP)':0.001, 'millipascal-seconde (mPa·s)':0.001
+  }},
+  couple: { base:'N.m', units:{
+    'newton-mètre (N·m)':1, 'kilonewton-mètre (kN·m)':1000, 'livre-pied (lb·ft)':1.35582, 'livre-pouce (lb·in)':0.112985
+  }},
+  debit: { base:'m3/s', units:{
+    'm³/s':1, 'litre/seconde (L/s)':0.001, 'litre/minute (L/min)':1.6667e-5, 'm³/heure':0.000277778,
+    'gallon US/minute':6.30902e-5, 'pied cube/minute (CFM)':0.000471947
+  }},
+  concentration: { base:'mol/L', units:{
+    'mole/litre (mol/L)':1, 'millimole/litre (mmol/L)':0.001, 'micromole/litre (µmol/L)':1e-6, 'mole/m³':0.001
+  }},
+  radioactivite: { base:'Bq', units:{
+    'becquerel (Bq)':1, 'kilobecquerel (kBq)':1000, 'curie (Ci)':3.7e10, 'millicurie (mCi)':3.7e7
+  }}
+};
+
+const CAT_LABELS = {
+  longueur:'Longueur', masse:'Masse', temps:'Temps', volume:'Volume', surface:'Surface',
+  vitesse:'Vitesse', temperature:'Température', pression:'Pression', energie:'Énergie',
+  puissance:'Puissance', donnees:'Données numériques', angle:'Angle', frequence:'Fréquence',
+  force:'Force', densite:'Densité', carburant:'Consommation carburant',
+  tension:'Tension électrique', courant:'Courant électrique', resistance:'Résistance électrique',
+  luminosite:'Luminosité', viscosite:'Viscosité', couple:'Couple mécanique', debit:'Débit volumique',
+  concentration:'Concentration chimique', radioactivite:'Radioactivité'
+};
+
+const CAT_DESC = {
+  longueur:"grandeur qui mesure une distance dans l'espace, du millimètre à l'année-lumière.",
+  masse:"quantité de matière contenue dans un objet, indépendante de la gravité (à ne pas confondre avec le poids).",
+  temps:"durée écoulée entre deux instants, mesurée en secondes dans le Système International.",
+  volume:"espace tridimensionnel occupé par un objet ou un liquide.",
+  surface:"étendue d'une zone à deux dimensions (longueur × largeur).",
+  vitesse:"distance parcourue par unité de temps, v = d/t.",
+  temperature:"mesure de l'agitation thermique moyenne des particules d'un système.",
+  pression:"force exercée par unité de surface, P = F/S.",
+  energie:"capacité d'un système à produire un travail (mécanique, thermique, électrique...).",
+  puissance:"énergie transférée ou transformée par unité de temps, P = E/t.",
+  donnees:"quantité d'information numérique stockée ou transmise (bits, octets...).",
+  angle:"mesure d'une rotation ou d'un écart angulaire entre deux directions.",
+  frequence:"nombre d'oscillations ou de cycles par seconde, f = 1/T.",
+  force:"action mécanique capable de déformer ou d'accélérer un objet, F = m·a.",
+  densite:"masse par unité de volume d'une substance, ρ = m/V.",
+  carburant:"quantité de carburant consommée pour parcourir une distance donnée.",
+  tension:"différence de potentiel électrique entre deux points d'un circuit, U = R·I.",
+  courant:"quantité de charge électrique circulant par seconde dans un conducteur.",
+  resistance:"opposition d'un matériau au passage du courant électrique, R = U/I.",
+  luminosite:"intensité lumineuse perçue émise par une source dans une direction donnée.",
+  viscosite:"résistance interne d'un fluide à l'écoulement.",
+  couple:"moment d'une force qui provoque une rotation autour d'un axe.",
+  debit:"volume de fluide traversant une section par unité de temps.",
+  concentration:"quantité de matière dissoute par unité de volume de solution.",
+  radioactivite:"nombre de désintégrations nucléaires par seconde dans une source."
+};
+
+const UNIT_DESC = {
+  'mètre (m)':"unité de base SI de la longueur.", 'kilomètre (km)':"1000 mètres, utilisé pour les distances routières.",
+  'centimètre (cm)':"1/100 de mètre.", 'millimètre (mm)':"1/1000 de mètre, précision d'atelier.",
+  'mile (mi)':"unité impériale ≈ 1,609 km, utilisée aux USA et au Royaume-Uni.",
+  'pied (ft)':"unité impériale ≈ 0,3048 m, utilisée en aviation (altitude).",
+  'pouce (in)':"unité impériale ≈ 2,54 cm, utilisée pour les écrans.",
+  'année-lumière (ly)':"distance parcourue par la lumière en un an, utilisée en astronomie.",
+  'kilogramme (kg)':"unité de base SI de la masse.", 'gramme (g)':"1/1000 de kilogramme.",
+  'livre (lb)':"unité impériale de masse ≈ 0,4536 kg.",
+  'seconde (s)':"unité de base SI du temps.", 'minute (min)':"60 secondes.", 'heure (h)':"3600 secondes.",
+  'jour (j)':"24 heures, durée d'une rotation de la Terre.",
+  'litre (L)':"1/1000 de mètre cube, unité courante de volume liquide.",
+  'mètre cube (m³)':"unité SI de volume.",
+  'kilomètre/heure (km/h)':"unité courante de vitesse routière.",
+  'mètre/seconde (m/s)':"unité SI de vitesse.", 'nœud (kn)':"mille marin par heure, utilisé en navigation/aviation.",
+  'Celsius (°C)':"échelle usuelle où 0°C = fusion de la glace, 100°C = ébullition de l'eau.",
+  'Fahrenheit (°F)':"échelle utilisée principalement aux États-Unis.",
+  'Kelvin (K)':"échelle absolue SI, 0K = zéro absolu.",
+  'pascal (Pa)':"unité SI de pression, 1 Pa = 1 N/m².",
+  'bar':"≈ pression atmosphérique, utilisé en météo et pneumatique.",
+  'joule (J)':"unité SI d'énergie, 1 J = 1 N·m.",
+  'kilowattheure (kWh)':"unité de facturation de l'électricité domestique.",
+  'watt (W)':"unité SI de puissance, 1 W = 1 J/s.",
+  'octet (byte)':"8 bits, unité de base du stockage numérique.",
+  'gigaoctet (Go)':"milliard d'octets, taille courante de fichiers/stockage.",
+  'radian (rad)':"unité SI d'angle, 2π rad = 360°.", 'degré (°)':"unité usuelle d'angle, 1 tour = 360°.",
+  'hertz (Hz)':"unité SI de fréquence, 1 Hz = 1 cycle/seconde.",
+  'newton (N)':"unité SI de force, 1 N accélère 1 kg à 1 m/s².",
+  'volt (V)':"unité SI de tension électrique.", 'ampère (A)':"unité SI de courant électrique.",
+  'ohm (Ω)':"unité SI de résistance électrique."
+};
+
+function getUnitDesc(u){
+  return UNIT_DESC[u] || "unité de mesure de la grandeur sélectionnée.";
+}
+
+let currentCat = 'longueur';
+
+function buildCatList(){
+  const list = document.getElementById('catList');
+  list.innerHTML='';
+  Object.keys(UNIT_DB).forEach(cat=>{
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="ic"></span>${CAT_LABELS[cat]}`;
+    b.dataset.cat = cat;
+    if(cat===currentCat) b.classList.add('active');
+    b.onclick = ()=>{ currentCat=cat; buildCatList(); buildUnitSelectors(); doConvert(); };
+    list.appendChild(b);
+  });
+  document.getElementById('statCats').textContent = Object.keys(UNIT_DB).length;
+  let totalUnits=0;
+  Object.values(UNIT_DB).forEach(c=> totalUnits += c.special ? c.units.length : Object.keys(c.units).length);
+  document.getElementById('statUnits').textContent = totalUnits+'+';
+}
+
+function buildUnitSelectors(){
+  const cat = UNIT_DB[currentCat];
+  const fromSel = document.getElementById('convFromUnit');
+  const toSel = document.getElementById('convToUnit');
+  fromSel.innerHTML=''; toSel.innerHTML='';
+  const names = cat.special ? cat.units : Object.keys(cat.units);
+  names.forEach((n,i)=>{
+    const o1=document.createElement('option'); o1.value=n; o1.textContent=n; fromSel.appendChild(o1);
+    const o2=document.createElement('option'); o2.value=n; o2.textContent=n; toSel.appendChild(o2);
+  });
+  if(names.length>1) toSel.selectedIndex=1;
+}
+
+/* Temperature special conversion (to Kelvin as pivot) */
+function tempToKelvin(v, unit){
+  if(unit.startsWith('Celsius')) return v+273.15;
+  if(unit.startsWith('Fahrenheit')) return (v-32)*5/9+273.15;
+  if(unit.startsWith('Kelvin')) return v;
+  if(unit.startsWith('Rankine')) return v*5/9;
+}
+function kelvinToTemp(k, unit){
+  if(unit.startsWith('Celsius')) return k-273.15;
+  if(unit.startsWith('Fahrenheit')) return (k-273.15)*9/5+32;
+  if(unit.startsWith('Kelvin')) return k;
+  if(unit.startsWith('Rankine')) return k*9/5;
+}
+/* Fuel consumption special (non-linear reciprocal-type conversions) */
+function fuelToL100(v, unit){
+  if(unit==='L/100km') return v;
+  if(unit==='km/L') return v<=0?0:100/v;
+  if(unit==='mpg (US)') return v<=0?0:235.214583/v;
+  if(unit==='mpg (UK)') return v<=0?0:282.481/v;
+}
+function l100ToFuel(l100, unit){
+  if(unit==='L/100km') return l100;
+  if(unit==='km/L') return l100<=0?0:100/l100;
+  if(unit==='mpg (US)') return l100<=0?0:235.214583/l100;
+  if(unit==='mpg (UK)') return l100<=0?0:282.481/l100;
+}
+
+function fmtNum(n){
+  if(!isFinite(n)) return '—';
+  if(Math.abs(n)>=1e9 || (Math.abs(n)<1e-6 && n!==0)) return n.toExponential(6);
+  return parseFloat(n.toPrecision(10)).toLocaleString('fr-FR',{maximumFractionDigits:8});
+}
+
+function doConvert(){
+  const cat = UNIT_DB[currentCat];
+  const val = parseFloat(document.getElementById('convInputVal').value) || 0;
+  const fromU = document.getElementById('convFromUnit').value;
+  const toU = document.getElementById('convToUnit').value;
+  let result;
+
+  document.getElementById('catDescTitle').textContent = CAT_LABELS[currentCat];
+  document.getElementById('catDescText').textContent = CAT_DESC[currentCat] || '';
+  document.getElementById('fromUnitDescLabel').textContent = fromU;
+  document.getElementById('fromUnitDesc').textContent = getUnitDesc(fromU);
+  document.getElementById('toUnitDescLabel').textContent = toU;
+  document.getElementById('toUnitDesc').textContent = getUnitDesc(toU);
+
+  if(currentCat==='temperature'){
+    result = kelvinToTemp(tempToKelvin(val, fromU), toU);
+  } else if(currentCat==='carburant'){
+    result = l100ToFuel(fuelToL100(val, fromU), toU);
+  } else {
+    const baseVal = val * cat.units[fromU];
+    result = baseVal / cat.units[toU];
+  }
+
+  document.getElementById('convOutputVal').value = fmtNum(result);
+  document.getElementById('convResultBig').textContent = fmtNum(result)+' '+toU.split('(')[0].trim();
+  document.getElementById('convResultNote').textContent = `${fmtNum(val)} ${fromU} = ${fmtNum(result)} ${toU}`;
+
+  // build full table
+  const body = document.getElementById('allUnitsBody');
+  body.innerHTML='';
+  const names = cat.special ? cat.units : Object.keys(cat.units);
+  names.forEach(u=>{
+    let rv;
+    if(currentCat==='temperature') rv = kelvinToTemp(tempToKelvin(val, fromU), u);
+    else if(currentCat==='carburant') rv = l100ToFuel(fuelToL100(val, fromU), u);
+    else rv = (val*cat.units[fromU]) / cat.units[u];
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${u}</td><td class="val">${fmtNum(rv)}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById('convInputVal').addEventListener('input', doConvert);
+document.getElementById('convFromUnit').addEventListener('change', doConvert);
+document.getElementById('convToUnit').addEventListener('change', doConvert);
+document.getElementById('swapBtn').addEventListener('click', ()=>{
+  const f=document.getElementById('convFromUnit'), t=document.getElementById('convToUnit');
+  const tmp=f.selectedIndex; f.selectedIndex=t.selectedIndex; t.selectedIndex=tmp;
+  doConvert();
+});
+
+buildCatList();
+buildUnitSelectors();
+doConvert();
+
+/* =========================================================
+   CALCULATOR
+========================================================= */
+const calcExprLine = document.getElementById('calcExprLine');
+const calcResultLine = document.getElementById('calcResultLine');
+const calcInput = document.getElementById('calcInput');
+let calcHistory = [];
+
+function safeEval(expr){
+  if(!expr.trim()) return 0;
+  let e = expr
+    .replace(/\^/g,'**')
+    .replace(/π/g,'pi')
+    .replace(/√/g,'sqrt')
+    .replace(/,/g,'.');
+
+  // function aliases
+  const scope = {
+    pi: Math.PI, e: Math.E, phi: 1.6180339887498949,
+    sin:Math.sin, cos:Math.cos, tan:Math.tan,
+    asin:Math.asin, acos:Math.acos, atan:Math.atan,
+    log:Math.log10, log10:Math.log10, log2:Math.log2, ln:Math.log,
+    sqrt:Math.sqrt, cbrt:Math.cbrt, exp:Math.exp, abs:Math.abs,
+    pow:Math.pow, min:Math.min, max:Math.max, round:Math.round,
+    floor:Math.floor, ceil:Math.ceil, sign:Math.sign, trunc:Math.trunc,
+    sinh:Math.sinh, cosh:Math.cosh, tanh:Math.tanh,
+    asinh:Math.asinh, acosh:Math.acosh, atanh:Math.atanh,
+    atan2:Math.atan2, hypot:Math.hypot, random: Math.random,
+    deg: function(r){ return r*180/Math.PI; },
+    rad: function(d){ return d*Math.PI/180; },
+    fact: function(n){ n=Math.round(n); if(n<0) return NaN; let r=1; for(let i=2;i<=n;i++) r*=i; return r; },
+    gcd: function(a,b){ a=Math.abs(Math.round(a)); b=Math.abs(Math.round(b)); while(b){const t=b; b=a%b; a=t;} return a; },
+    lcm: function(a,b){ a=Math.round(a); b=Math.round(b); if(a===0||b===0) return 0; let x=Math.abs(a), y=Math.abs(b); while(y){const t=y; y=x%y; x=t;} return Math.abs(a*b)/x; },
+    mod: function(a,b){ return a - b*Math.floor(a/b); },
+    perm: function(n,k){ n=Math.round(n); k=Math.round(k); if(k<0||k>n) return 0; let r=1; for(let i=0;i<k;i++) r*=(n-i); return r; },
+    comb: function(n,k){ n=Math.round(n); k=Math.round(k); if(k<0||k>n) return 0; let r=1; for(let i=0;i<k;i++) r*=(n-i)/(i+1); return Math.round(r); },
+    clamp: function(x,lo,hi){ return Math.min(Math.max(x,lo),hi); },
+    lerp: function(a,b,t){ return a+(b-a)*t; },
+    avg: function(...vals){ return vals.reduce((s,v)=>s+v,0)/vals.length; },
+    sum: function(...vals){ return vals.reduce((s,v)=>s+v,0); },
+    invsqrt: function(x){ return 1/Math.sqrt(x); },
+    logn: function(x,n){ return Math.log(x)/Math.log(n); }
+  };
+
+  // security: only allow chars used in math expressions + function names
+  if(/[^0-9a-zA-Z_+\-*/%.,()\s]/.test(e)){
+    throw new Error('Caractère non autorisé');
+  }
+  const allowedNames = Object.keys(scope).concat(['true','false']);
+  const tokens = e.match(/[a-zA-Z_]+/g) || [];
+  for(const t of tokens){ if(!allowedNames.includes(t)) throw new Error('Fonction inconnue: '+t); }
+
+  const argNames = Object.keys(scope);
+  const argVals = argNames.map(k=>scope[k]);
+  // eslint-disable-next-line no-new-func
+  const fn = new Function(...argNames, 'return ('+e+');');
+  const r = fn(...argVals);
+  if(typeof r !== 'number' || isNaN(r)) throw new Error('Expression invalide');
+  return r;
+}
+
+function updateCalcDisplay(){
+  const expr = calcInput.value || '0';
+  calcExprLine.textContent = expr;
+  try{
+    const r = safeEval(expr);
+    calcResultLine.textContent = fmtNum(r);
+    calcResultLine.style.color = 'var(--phosphor)';
+  }catch(err){
+    calcResultLine.textContent = expr.trim() ? 'Erreur' : '0';
+    calcResultLine.style.color = 'var(--red)';
+  }
+}
+calcInput.addEventListener('input', updateCalcDisplay);
+calcInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    try{
+      const r = safeEval(calcInput.value);
+      calcHistory.unshift({expr:calcInput.value, res:fmtNum(r)});
+      calcHistory = calcHistory.slice(0,12);
+      renderHistory();
+      calcInput.value = String(r);
+      updateCalcDisplay();
+    }catch(err){ /* ignore */ }
+  }
+});
+
+function renderHistory(){
+  const el = document.getElementById('histList');
+  el.innerHTML='';
+  if(calcHistory.length===0){ el.innerHTML = '<div class="small-note">Aucun calcul encore.</div>'; return; }
+  calcHistory.forEach(h=>{
+    const d=document.createElement('div');
+    d.className='hist-item';
+    d.innerHTML = `<span class="h-res">${h.res}</span><span class="h-expr">${h.expr}</span>`;
+    d.onclick = ()=>{ calcInput.value = h.expr; updateCalcDisplay(); calcInput.focus(); };
+    el.appendChild(d);
+  });
+}
+renderHistory();
+updateCalcDisplay();
+
+const FN_DOCS = [
+  {n:'sin(x), cos(x), tan(x)', d:'Sinus, cosinus, tangente d\'un angle x exprimé en radians.'},
+  {n:'asin(x), acos(x), atan(x)', d:'Fonctions trigonométriques inverses (arc-sinus, arc-cosinus, arc-tangente), retournent un angle en radians.'},
+  {n:'atan2(y, x)', d:'Angle en radians entre l\'axe horizontal et le point (x, y) — utile pour convertir des coordonnées cartésiennes en angle.'},
+  {n:'sinh(x), cosh(x), tanh(x)', d:'Fonctions hyperboliques (sinus, cosinus, tangente hyperboliques).'},
+  {n:'asinh(x), acosh(x), atanh(x)', d:'Fonctions hyperboliques inverses.'},
+  {n:'log(x)', d:'Logarithme décimal (base 10) de x. Équivalent à log10(x).'},
+  {n:'log2(x)', d:'Logarithme en base 2 de x.'},
+  {n:'ln(x)', d:'Logarithme népérien (base e) de x.'},
+  {n:'logn(x, n)', d:'Logarithme de x dans une base n quelconque.'},
+  {n:'sqrt(x)', d:'Racine carrée de x.'},
+  {n:'cbrt(x)', d:'Racine cubique de x (fonctionne aussi pour les nombres négatifs).'},
+  {n:'invsqrt(x)', d:'Inverse de la racine carrée de x, soit 1 / √x.'},
+  {n:'exp(x)', d:'Exponentielle de x, c\'est-à-dire e élevé à la puissance x.'},
+  {n:'pow(x, y)', d:'x élevé à la puissance y. Équivalent à x^y.'},
+  {n:'hypot(x, y)', d:'Longueur de l\'hypoténuse d\'un triangle rectangle de côtés x et y, soit √(x²+y²).'},
+  {n:'abs(x)', d:'Valeur absolue de x (supprime le signe négatif).'},
+  {n:'sign(x)', d:'Signe de x : renvoie -1, 0 ou 1 selon que x est négatif, nul ou positif.'},
+  {n:'trunc(x)', d:'Partie entière de x, tronquée vers zéro (sans arrondi).'},
+  {n:'round(x)', d:'Arrondit x à l\'entier le plus proche.'},
+  {n:'floor(x)', d:'Arrondit x à l\'entier inférieur (vers le bas).'},
+  {n:'ceil(x)', d:'Arrondit x à l\'entier supérieur (vers le haut).'},
+  {n:'fact(n)', d:'Factorielle de n, soit le produit de tous les entiers de 1 à n (n!).'},
+  {n:'gcd(a, b)', d:'Plus grand commun diviseur (PGCD) de deux entiers a et b.'},
+  {n:'lcm(a, b)', d:'Plus petit commun multiple (PPCM) de deux entiers a et b.'},
+  {n:'mod(a, b)', d:'Reste de la division euclidienne de a par b (modulo).'},
+  {n:'perm(n, k)', d:'Nombre d\'arrangements (permutations) de k éléments choisis parmi n, en tenant compte de l\'ordre.'},
+  {n:'comb(n, k)', d:'Nombre de combinaisons de k éléments choisis parmi n, sans tenir compte de l\'ordre.'},
+  {n:'deg(rad)', d:'Convertit un angle exprimé en radians vers des degrés.'},
+  {n:'rad(deg)', d:'Convertit un angle exprimé en degrés vers des radians.'},
+  {n:'min(...), max(...)', d:'Renvoie la plus petite ou la plus grande valeur parmi plusieurs nombres séparés par des virgules.'},
+  {n:'avg(...), sum(...)', d:'Moyenne ou somme d\'une liste de nombres séparés par des virgules.'},
+  {n:'clamp(x, lo, hi)', d:'Force x à rester compris entre lo et hi (le ramène à la borne dépassée).'},
+  {n:'lerp(a, b, t)', d:'Interpolation linéaire entre a et b selon un facteur t compris entre 0 et 1.'},
+  {n:'random()', d:'Génère un nombre aléatoire entre 0 (inclus) et 1 (exclu).'},
+  {n:'pi, e, phi', d:'Constantes mathématiques : π ≈ 3.14159, e ≈ 2.71828 (base des logarithmes népériens), φ ≈ 1.61803 (nombre d\'or).'}
+];
+function renderFnDocs(){
+  const el = document.getElementById('fnDocsList');
+  el.innerHTML='';
+  FN_DOCS.forEach(f=>{
+    const row = document.createElement('div');
+    row.className='fn-doc-item';
+    row.innerHTML = `<span class="fn-name">${f.n}</span><span class="fn-desc">${f.d}</span>`;
+    el.appendChild(row);
+  });
+}
+renderFnDocs();
+
+const KEYS = [
+  {k:'(',c:''},{k:')',c:''},{k:'%',c:'op'},{k:'C',c:'clear'},{k:'⌫',c:'clear'},
+  {k:'sin(',c:'fn'},{k:'cos(',c:'fn'},{k:'tan(',c:'fn'},{k:'log(',c:'fn'},{k:'ln(',c:'fn'},
+  {k:'7',c:''},{k:'8',c:''},{k:'9',c:''},{k:'/',c:'op'},{k:'sqrt(',c:'fn'},
+  {k:'4',c:''},{k:'5',c:''},{k:'6',c:''},{k:'*',c:'op'},{k:'^',c:'op'},
+  {k:'1',c:''},{k:'2',c:''},{k:'3',c:''},{k:'-',c:'op'},{k:'pi',c:'fn'},
+  {k:'0',c:''},{k:'.',c:''},{k:'e',c:'fn'},{k:'+',c:'op'},{k:'=',c:'eq'},
+  {k:'asin(',c:'fn'},{k:'acos(',c:'fn'},{k:'atan(',c:'fn'},{k:'atan2(',c:'fn'},{k:'hypot(',c:'fn'},
+  {k:'sinh(',c:'fn'},{k:'cosh(',c:'fn'},{k:'tanh(',c:'fn'},{k:'log2(',c:'fn'},{k:'log10(',c:'fn'},
+  {k:'cbrt(',c:'fn'},{k:'exp(',c:'fn'},{k:'abs(',c:'fn'},{k:'fact(',c:'fn'},{k:'sign(',c:'fn'},
+  {k:'gcd(',c:'fn'},{k:'lcm(',c:'fn'},{k:'mod(',c:'fn'},{k:'perm(',c:'fn'},{k:'comb(',c:'fn'},
+  {k:'deg(',c:'fn'},{k:'rad(',c:'fn'},{k:'min(',c:'fn'},{k:'max(',c:'fn'},{k:'round(',c:'fn'},
+  {k:'floor(',c:'fn'},{k:'ceil(',c:'fn'},{k:'trunc(',c:'fn'},{k:'phi',c:'fn'},{k:'random(',c:'fn'}
+];
+const keypad = document.getElementById('keypad');
+KEYS.forEach(({k,c})=>{
+  const b=document.createElement('button');
+  b.textContent=k; if(c) b.className=c;
+  b.onclick = ()=>{
+    if(k==='C'){ calcInput.value=''; }
+    else if(k==='⌫'){ calcInput.value = calcInput.value.slice(0,-1); }
+    else if(k==='='){
+      try{
+        const r = safeEval(calcInput.value);
+        calcHistory.unshift({expr:calcInput.value, res:fmtNum(r)});
+        calcHistory = calcHistory.slice(0,12);
+        renderHistory();
+        calcInput.value = String(r);
+      }catch(err){}
+    } else {
+      calcInput.value += k;
+    }
+    updateCalcDisplay();
+    calcInput.focus();
+  };
+  keypad.appendChild(b);
+});
+
+/* =========================================================
+   EQUATIONS & VECTORS
+========================================================= */
+document.getElementById('eqTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#eqTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.eq-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('eq-'+btn.dataset.eq).classList.add('active');
+});
+
+function solveLinear(){
+  const a=parseFloat(document.getElementById('lin_a').value);
+  const b=parseFloat(document.getElementById('lin_b').value);
+  const out=document.getElementById('lin_result');
+  if(a===0){
+    out.textContent = b===0 ? 'Infinité de solutions (0 = 0).' : 'Aucune solution (contradiction).';
+    return;
+  }
+  const x = -b/a;
+  out.textContent = `x = -b/a = ${fmtNum(x)}\nVérification: ${a}×(${fmtNum(x)}) + (${b}) = ${fmtNum(a*x+b)}`;
+}
+
+function solveQuad(){
+  const a=parseFloat(document.getElementById('q_a').value);
+  const b=parseFloat(document.getElementById('q_b').value);
+  const c=parseFloat(document.getElementById('q_c').value);
+  const out=document.getElementById('q_result');
+  if(a===0){ out.textContent="a=0 : ce n'est pas une équation quadratique. Utilise l'onglet linéaire."; return; }
+  const d = b*b - 4*a*c;
+  let txt = `Discriminant Δ = b² − 4ac = ${fmtNum(d)}\n`;
+  if(d>0){
+    const x1=(-b+Math.sqrt(d))/(2*a), x2=(-b-Math.sqrt(d))/(2*a);
+    txt += `Δ > 0 → deux racines réelles distinctes\nx₁ = ${fmtNum(x1)}\nx₂ = ${fmtNum(x2)}`;
+  } else if(d===0){
+    const x=(-b)/(2*a);
+    txt += `Δ = 0 → racine double\nx = ${fmtNum(x)}`;
+  } else {
+    const re=(-b/(2*a)), im=Math.sqrt(-d)/(2*a);
+    txt += `Δ < 0 → deux racines complexes conjuguées\nx₁ = ${fmtNum(re)} + ${fmtNum(im)}i\nx₂ = ${fmtNum(re)} − ${fmtNum(im)}i`;
+  }
+  out.textContent = txt;
+}
+
+function solveSys2(){
+  const a1=parseFloat(document.getElementById('s2_a1').value), b1=parseFloat(document.getElementById('s2_b1').value), c1=parseFloat(document.getElementById('s2_c1').value);
+  const a2=parseFloat(document.getElementById('s2_a2').value), b2=parseFloat(document.getElementById('s2_b2').value), c2=parseFloat(document.getElementById('s2_c2').value);
+  const out=document.getElementById('s2_result');
+  const det = a1*b2 - a2*b1;
+  if(det===0){ out.textContent='Déterminant nul : système sans solution unique (parallèle ou confondu).'; return; }
+  const x = (c1*b2 - c2*b1)/det;
+  const y = (a1*c2 - a2*c1)/det;
+  out.textContent = `Déterminant = ${fmtNum(det)}\nx = ${fmtNum(x)}\ny = ${fmtNum(y)}\n\nVérification:\n${a1}x+${b1}y = ${fmtNum(a1*x+b1*y)} (attendu ${c1})\n${a2}x+${b2}y = ${fmtNum(a2*x+b2*y)} (attendu ${c2})`;
+}
+
+function det3(m){
+  return m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])
+       - m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])
+       + m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+}
+function solveSys3(){
+  const g=id=>parseFloat(document.getElementById(id).value);
+  const A=[[g('s3_00'),g('s3_01'),g('s3_02')],[g('s3_10'),g('s3_11'),g('s3_12')],[g('s3_20'),g('s3_21'),g('s3_22')]];
+  const C=[g('s3_c0'),g('s3_c1'),g('s3_c2')];
+  const out=document.getElementById('s3_result');
+  const D = det3(A);
+  if(D===0){ out.textContent='Déterminant nul : pas de solution unique.'; return; }
+  const Ax=[[C[0],A[0][1],A[0][2]],[C[1],A[1][1],A[1][2]],[C[2],A[2][1],A[2][2]]];
+  const Ay=[[A[0][0],C[0],A[0][2]],[A[1][0],C[1],A[1][2]],[A[2][0],C[2],A[2][2]]];
+  const Az=[[A[0][0],A[0][1],C[0]],[A[1][0],A[1][1],C[1]],[A[2][0],A[2][1],C[2]]];
+  const x=det3(Ax)/D, y=det3(Ay)/D, z=det3(Az)/D;
+  out.textContent = `Méthode de Cramer — det(A) = ${fmtNum(D)}\nx = ${fmtNum(x)}\ny = ${fmtNum(y)}\nz = ${fmtNum(z)}`;
+}
+
+function solveCubic(){
+  const a=parseFloat(document.getElementById('c_a').value);
+  const b=parseFloat(document.getElementById('c_b').value);
+  const c=parseFloat(document.getElementById('c_c').value);
+  const d=parseFloat(document.getElementById('c_d').value);
+  const out=document.getElementById('c_result');
+  if(a===0){ out.textContent='a=0 : ce n\'est pas une équation cubique. Utilise l\'onglet quadratique.'; return; }
+
+  // Depressed cubic via Cardan: x = t - b/(3a), t^3 + pt + q = 0
+  const A=b/a, B=c/a, C=d/a;
+  const p = B - A*A/3;
+  const q = (2*A*A*A)/27 - (A*B)/3 + C;
+  const disc = (q*q)/4 + (p*p*p)/27;
+  const shift = A/3;
+  let txt = `Forme réduite : t³ + (${fmtNum(p)})t + (${fmtNum(q)}) = 0, avec x = t − ${fmtNum(shift)}\nDiscriminant Δ = ${fmtNum(disc)}\n\n`;
+
+  if(disc > 1e-12){
+    const sq = Math.sqrt(disc);
+    const u = Math.cbrt(-q/2 + sq);
+    const v = Math.cbrt(-q/2 - sq);
+    const t1 = u+v;
+    const x1 = t1 - shift;
+    txt += `Une racine réelle (Δ > 0) :\nx₁ = ${fmtNum(x1)}\n\nLes deux autres racines sont complexes conjuguées.`;
+  } else if(disc < -1e-12){
+    const r = Math.sqrt(-p*p*p/27);
+    const phi = Math.acos(Math.max(-1,Math.min(1, -q/(2*r))));
+    const m = 2*Math.sqrt(-p/3);
+    const t1 = m*Math.cos(phi/3);
+    const t2 = m*Math.cos((phi+2*Math.PI)/3);
+    const t3 = m*Math.cos((phi+4*Math.PI)/3);
+    txt += `Trois racines réelles distinctes (Δ < 0) :\nx₁ = ${fmtNum(t1-shift)}\nx₂ = ${fmtNum(t2-shift)}\nx₃ = ${fmtNum(t3-shift)}`;
+  } else {
+    const u = Math.cbrt(-q/2);
+    const t1 = 2*u, t2 = -u;
+    txt += `Racine multiple (Δ ≈ 0) :\nx₁ = ${fmtNum(t1-shift)}\nx₂ = x₃ = ${fmtNum(t2-shift)}`;
+  }
+  out.textContent = txt;
+}
+
+function solveStats(){
+  const raw = document.getElementById('stats_input').value;
+  const nums = raw.split(/[,\s]+/).map(s=>parseFloat(s)).filter(v=>!isNaN(v));
+  const out = document.getElementById('stats_result');
+  if(nums.length===0){ out.textContent='Entre au moins une valeur numérique.'; return; }
+  const n = nums.length;
+  const sum = nums.reduce((s,v)=>s+v,0);
+  const mean = sum/n;
+  const sorted = [...nums].sort((a,b)=>a-b);
+  const median = n%2===0 ? (sorted[n/2-1]+sorted[n/2])/2 : sorted[(n-1)/2];
+  const min = Math.min(...nums), max = Math.max(...nums);
+  const variance = nums.reduce((s,v)=>s+(v-mean)**2,0)/n;
+  const sampleVariance = n>1 ? nums.reduce((s,v)=>s+(v-mean)**2,0)/(n-1) : 0;
+  const stddev = Math.sqrt(variance);
+  const sampleStddev = Math.sqrt(sampleVariance);
+  // mode
+  const freq = {};
+  nums.forEach(v=> freq[v] = (freq[v]||0)+1 );
+  let maxFreq = 0, modes = [];
+  Object.entries(freq).forEach(([v,f])=>{
+    if(f>maxFreq){ maxFreq=f; modes=[v]; } else if(f===maxFreq){ modes.push(v); }
+  });
+  const modeText = maxFreq>1 ? modes.join(', ') : 'aucun (toutes valeurs uniques)';
+
+  out.textContent =
+`n = ${n}
+Somme = ${fmtNum(sum)}
+Moyenne = ${fmtNum(mean)}
+Médiane = ${fmtNum(median)}
+Mode = ${modeText}
+Min = ${fmtNum(min)}   Max = ${fmtNum(max)}   Étendue = ${fmtNum(max-min)}
+Variance (population) = ${fmtNum(variance)}
+Écart-type (population) = ${fmtNum(stddev)}
+Variance (échantillon) = ${fmtNum(sampleVariance)}
+Écart-type (échantillon) = ${fmtNum(sampleStddev)}`;
+}
+
+let vecDim = 2;
+document.getElementById('vecDimTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#vecDimTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  vecDim = parseInt(btn.dataset.dim);
+  document.querySelectorAll('.vec3-only').forEach(el=> el.style.display = vecDim===3 ? '' : 'none');
+});
+document.querySelectorAll('.vec3-only').forEach(el=> el.style.display='none');
+
+function getVec(prefix){
+  const x=parseFloat(document.getElementById(prefix+'_x').value)||0;
+  const y=parseFloat(document.getElementById(prefix+'_y').value)||0;
+  const z=vecDim===3 ? (parseFloat(document.getElementById(prefix+'_z').value)||0) : 0;
+  return [x,y,z];
+}
+function fmtVec(v){
+  return vecDim===3 ? `(${fmtNum(v[0])}, ${fmtNum(v[1])}, ${fmtNum(v[2])})` : `(${fmtNum(v[0])}, ${fmtNum(v[1])})`;
+}
+function vecOp(op){
+  const A=getVec('va'), B=getVec('vb');
+  const out=document.getElementById('vec_result');
+  if(op==='add'){
+    out.textContent = `A + B = ${fmtVec([A[0]+B[0], A[1]+B[1], A[2]+B[2]])}`;
+  } else if(op==='sub'){
+    out.textContent = `A − B = ${fmtVec([A[0]-B[0], A[1]-B[1], A[2]-B[2]])}`;
+  } else if(op==='dot'){
+    const d = A[0]*B[0]+A[1]*B[1]+A[2]*B[2];
+    out.textContent = `A · B = ${fmtNum(d)}`;
+  } else if(op==='cross'){
+    if(vecDim!==3){ out.textContent="Le produit vectoriel nécessite des vecteurs 3D (bascule l'onglet ci-dessus)."; return; }
+    const cx = A[1]*B[2]-A[2]*B[1];
+    const cy = A[2]*B[0]-A[0]*B[2];
+    const cz = A[0]*B[1]-A[1]*B[0];
+    out.textContent = `A × B = ${fmtVec([cx,cy,cz])}`;
+  } else if(op==='norm'){
+    const nA = Math.sqrt(A[0]**2+A[1]**2+A[2]**2);
+    const nB = Math.sqrt(B[0]**2+B[1]**2+B[2]**2);
+    out.textContent = `‖A‖ = ${fmtNum(nA)}\n‖B‖ = ${fmtNum(nB)}`;
+  } else if(op==='angle'){
+    const dot = A[0]*B[0]+A[1]*B[1]+A[2]*B[2];
+    const nA = Math.sqrt(A[0]**2+A[1]**2+A[2]**2);
+    const nB = Math.sqrt(B[0]**2+B[1]**2+B[2]**2);
+    if(nA===0||nB===0){ out.textContent='Vecteur nul : angle indéfini.'; return; }
+    const cosT = Math.max(-1,Math.min(1, dot/(nA*nB)));
+    const rad = Math.acos(cosT);
+    const deg = rad*180/Math.PI;
+    out.textContent = `cos(θ) = ${fmtNum(cosT)}\nθ = ${fmtNum(rad)} rad = ${fmtNum(deg)}°`;
+  }
+}
+
+/* =========================================================
+   BIBLIOTHÈQUE DE FORMULES PHYSIQUES
+========================================================= */
+const G_EARTH = 9.80665;
+const C_LIGHT = 299792458;
+
+const FORMULAS = [
+  { cat:'meca', id:'vitesse', eq:'v = d / t', name:'Vitesse', desc:"La vitesse moyenne est la distance parcourue divisée par le temps mis pour la parcourir.",
+    vars:[{k:'d',label:'Distance d (m)'},{k:'t',label:'Temps t (s)'}],
+    compute:(v)=> v.d/v.t, resultLabel:'v (m/s)'},
+  { cat:'meca', id:'accel', eq:'a = (vf − vi) / t', name:'Accélération', desc:"L'accélération est la variation de vitesse par unité de temps.",
+    vars:[{k:'vf',label:'Vitesse finale vf (m/s)'},{k:'vi',label:'Vitesse initiale vi (m/s)'},{k:'t',label:'Temps t (s)'}],
+    compute:(v)=> (v.vf-v.vi)/v.t, resultLabel:'a (m/s²)'},
+  { cat:'meca', id:'force', eq:'F = m × a', name:"Force (2e loi de Newton)", desc:"La force exercée sur un objet est le produit de sa masse par son accélération.",
+    vars:[{k:'m',label:'Masse m (kg)'},{k:'a',label:'Accélération a (m/s²)'}],
+    compute:(v)=> v.m*v.a, resultLabel:'F (N)'},
+  { cat:'meca', id:'quantmvt', eq:'p = m × v', name:'Quantité de mouvement', desc:"Grandeur qui caractérise l'effet d'inertie d'un corps en mouvement.",
+    vars:[{k:'m',label:'Masse m (kg)'},{k:'v',label:'Vitesse v (m/s)'}],
+    compute:(v)=> v.m*v.v, resultLabel:'p (kg·m/s)'},
+  { cat:'meca', id:'travail', eq:'W = F × d', name:'Travail mécanique', desc:"Le travail d'une force constante est le produit de la force par le déplacement dans sa direction.",
+    vars:[{k:'F',label:'Force F (N)'},{k:'d',label:'Distance d (m)'}],
+    compute:(v)=> v.F*v.d, resultLabel:'W (J)'},
+  { cat:'meca', id:'ecin', eq:'Ec = ½ × m × v²', name:'Énergie cinétique', desc:"Énergie que possède un corps du fait de son mouvement.",
+    vars:[{k:'m',label:'Masse m (kg)'},{k:'v',label:'Vitesse v (m/s)'}],
+    compute:(v)=> 0.5*v.m*v.v*v.v, resultLabel:'Ec (J)'},
+  { cat:'meca', id:'epot', eq:'Ep = m × g × h', name:'Énergie potentielle de pesanteur', desc:"Énergie stockée par un objet du fait de son altitude dans un champ de gravité (g = 9,80665 m/s²).",
+    vars:[{k:'m',label:'Masse m (kg)'},{k:'h',label:'Hauteur h (m)'}],
+    compute:(v)=> v.m*G_EARTH*v.h, resultLabel:'Ep (J)'},
+
+  { cat:'elec', id:'ohm', eq:'U = R × I', name:"Loi d'Ohm (tension)", desc:"La tension aux bornes d'un conducteur ohmique est le produit de sa résistance par le courant qui le traverse.",
+    vars:[{k:'R',label:'Résistance R (Ω)'},{k:'I',label:'Courant I (A)'}],
+    compute:(v)=> v.R*v.I, resultLabel:'U (V)'},
+  { cat:'elec', id:'puiselec', eq:'P = U × I', name:'Puissance électrique', desc:"La puissance consommée par un appareil est le produit de la tension par le courant.",
+    vars:[{k:'U',label:'Tension U (V)'},{k:'I',label:'Courant I (A)'}],
+    compute:(v)=> v.U*v.I, resultLabel:'P (W)'},
+  { cat:'elec', id:'charge', eq:'Q = I × t', name:'Charge électrique', desc:"La charge transportée est le produit du courant par la durée du passage.",
+    vars:[{k:'I',label:'Courant I (A)'},{k:'t',label:'Temps t (s)'}],
+    compute:(v)=> v.I*v.t, resultLabel:'Q (C)'},
+  { cat:'elec', id:'energieelec', eq:'E = P × t', name:'Énergie électrique', desc:"L'énergie consommée est la puissance multipliée par la durée d'utilisation (base des factures EDF en kWh).",
+    vars:[{k:'P',label:'Puissance P (W)'},{k:'t',label:'Temps t (s)'}],
+    compute:(v)=> v.P*v.t, resultLabel:'E (J)'},
+
+  { cat:'energie', id:'einstein', eq:'E = m × c²', name:'Équivalence masse-énergie', desc:"Formule d'Einstein : toute masse contient une énergie colossale, c = 299 792 458 m/s.",
+    vars:[{k:'m',label:'Masse m (kg)'}],
+    compute:(v)=> v.m*C_LIGHT*C_LIGHT, resultLabel:'E (J)'},
+  { cat:'energie', id:'chaleur', eq:'Q = m × cp × ΔT', name:"Quantité de chaleur", desc:"Énergie thermique nécessaire pour changer la température d'une masse m d'une capacité thermique cp donnée.",
+    vars:[{k:'m',label:'Masse m (kg)'},{k:'cp',label:'Capacité thermique cp (J/kg·K)'},{k:'dT',label:'ΔT (K ou °C)'}],
+    compute:(v)=> v.m*v.cp*v.dT, resultLabel:'Q (J)'},
+  { cat:'energie', id:'gazparfait', eq:'P = n × R × T / V', name:'Loi des gaz parfaits', desc:"Relie pression, quantité de matière, température et volume d'un gaz parfait (R = 8,314 J/mol·K).",
+    vars:[{k:'n',label:'Quantité n (mol)'},{k:'T',label:'Température T (K)'},{k:'V',label:'Volume V (m³)'}],
+    compute:(v)=> (v.n*8.314*v.T)/v.V, resultLabel:'P (Pa)'},
+
+  { cat:'ondes', id:'freqvitesse', eq:'f = c / λ', name:'Fréquence d\'une onde', desc:"Relie la fréquence d'une onde électromagnétique à sa longueur d'onde via la vitesse de la lumière.",
+    vars:[{k:'lambda',label:'Longueur d\'onde λ (m)'}],
+    compute:(v)=> C_LIGHT/v.lambda, resultLabel:'f (Hz)'},
+  { cat:'ondes', id:'periode', eq:'T = 1 / f', name:'Période', desc:"La période est l'inverse de la fréquence : durée d'un cycle complet.",
+    vars:[{k:'f',label:'Fréquence f (Hz)'}],
+    compute:(v)=> 1/v.f, resultLabel:'T (s)'},
+  { cat:'ondes', id:'indice', eq:'n = c / v', name:'Indice de réfraction', desc:"Rapport entre la vitesse de la lumière dans le vide et sa vitesse dans un milieu donné.",
+    vars:[{k:'v',label:'Vitesse dans le milieu v (m/s)'}],
+    compute:(v)=> C_LIGHT/v.v, resultLabel:'n (sans unité)'},
+  { cat:'ondes', id:'snell', eq:'n1·sin(θ1) = n2·sin(θ2) → θ2', name:'Loi de Snell-Descartes', desc:"Décrit la réfraction d'un rayon lumineux passant d'un milieu à un autre (angles en degrés).",
+    vars:[{k:'n1',label:'Indice milieu 1 n1'},{k:'theta1',label:'Angle incidence θ1 (°)'},{k:'n2',label:'Indice milieu 2 n2'}],
+    compute:(v)=> Math.asin(Math.min(1,Math.max(-1,(v.n1*Math.sin(v.theta1*Math.PI/180))/v.n2)))*180/Math.PI, resultLabel:'θ2 (°)'},
+  { cat:'ondes', id:'energiephoton', eq:'E = h × f', name:"Énergie d'un photon", desc:"Relation de Planck-Einstein : l'énergie d'un photon est proportionnelle à sa fréquence (h = 6,62607015×10⁻³⁴ J·s).",
+    vars:[{k:'f',label:'Fréquence f (Hz)'}],
+    compute:(v)=> 6.62607015e-34*v.f, resultLabel:'E (J)'},
+  { cat:'ondes', id:'dopplerson', eq:"f' = f × (v + vo)/(v − vs)", name:'Effet Doppler (son)', desc:"Décalage de fréquence perçu quand la source ou l'observateur est en mouvement (v = 343 m/s, vitesse du son).",
+    vars:[{k:'f',label:'Fréquence émise f (Hz)'},{k:'vo',label:"Vitesse observateur vo (m/s, + si approche)"},{k:'vs',label:"Vitesse source vs (m/s, + si approche)"}],
+    compute:(v)=> v.f*(343+v.vo)/(343-v.vs), resultLabel:"f' (Hz)"},
+
+  { cat:'chimie', id:'moles', eq:'n = m / M', name:'Quantité de matière', desc:"Nombre de moles d'une substance = masse divisée par la masse molaire.",
+    vars:[{k:'m',label:'Masse m (g)'},{k:'M',label:'Masse molaire M (g/mol)'}],
+    compute:(v)=> v.m/v.M, resultLabel:'n (mol)'},
+  { cat:'chimie', id:'concentration', eq:'C = n / V', name:'Concentration molaire', desc:"Quantité de matière dissoute par litre de solution.",
+    vars:[{k:'n',label:'Quantité n (mol)'},{k:'V',label:'Volume V (L)'}],
+    compute:(v)=> v.n/v.V, resultLabel:'C (mol/L)'},
+  { cat:'chimie', id:'ph', eq:'pH = −log₁₀([H⁺])', name:'pH d\'une solution', desc:"Mesure l'acidité d'une solution à partir de la concentration en ions H⁺ (mol/L).",
+    vars:[{k:'H',label:'Concentration [H⁺] (mol/L)'}],
+    compute:(v)=> -Math.log10(v.H), resultLabel:'pH'},
+  { cat:'chimie', id:'dilution', eq:'C1 × V1 = C2 × V2 → V1', name:'Dilution', desc:"Volume de solution mère à prélever pour obtenir une solution fille de concentration et volume donnés.",
+    vars:[{k:'C2',label:'Concentration voulue C2 (mol/L)'},{k:'V2',label:'Volume voulu V2 (L)'},{k:'C1',label:'Concentration mère C1 (mol/L)'}],
+    compute:(v)=> (v.C2*v.V2)/v.C1, resultLabel:'V1 (L)'},
+
+  { cat:'astro', id:'gravitation', eq:'F = G × m1 × m2 / r²', name:'Loi de la gravitation universelle', desc:"Force d'attraction entre deux masses séparées par une distance r (G = 6,674×10⁻¹¹ N·m²/kg²).",
+    vars:[{k:'m1',label:'Masse 1 (kg)'},{k:'m2',label:'Masse 2 (kg)'},{k:'r',label:'Distance r (m)'}],
+    compute:(v)=> (6.6743e-11*v.m1*v.m2)/(v.r*v.r), resultLabel:'F (N)'},
+  { cat:'astro', id:'vitesselib', eq:'v = √(2GM/r)', name:'Vitesse de libération', desc:"Vitesse minimale pour échapper à l'attraction gravitationnelle d'un corps de masse M à une distance r.",
+    vars:[{k:'M',label:'Masse du corps M (kg)'},{k:'r',label:'Rayon/distance r (m)'}],
+    compute:(v)=> Math.sqrt((2*6.6743e-11*v.M)/v.r), resultLabel:'v (m/s)'},
+  { cat:'astro', id:'kepler3', eq:'T² = 4π²a³ / (GM)', name:'3e loi de Kepler', desc:"Relie la période orbitale T d'un satellite au demi-grand axe a de son orbite autour d'un corps de masse M.",
+    vars:[{k:'a',label:'Demi-grand axe a (m)'},{k:'M',label:'Masse centrale M (kg)'}],
+    compute:(v)=> Math.sqrt((4*Math.PI*Math.PI*Math.pow(v.a,3))/(6.6743e-11*v.M)), resultLabel:'T (s)'},
+
+  { cat:'info', id:'debitbinaire', eq:'D = n / t', name:'Débit binaire', desc:"Quantité de données transmises par unité de temps (base d'un débit réseau).",
+    vars:[{k:'n',label:'Données n (bits)'},{k:'t',label:'Temps t (s)'}],
+    compute:(v)=> v.n/v.t, resultLabel:'D (bit/s)'},
+  { cat:'info', id:'shannon', eq:'C = B × log₂(1 + S/N)', name:'Capacité de Shannon', desc:"Débit maximal théorique d'un canal de communication bruité (B = bande passante, S/N = rapport signal/bruit linéaire).",
+    vars:[{k:'B',label:'Bande passante B (Hz)'},{k:'SN',label:'Rapport signal/bruit S/N (linéaire)'}],
+    compute:(v)=> v.B*Math.log2(1+v.SN), resultLabel:'C (bit/s)'},
+  { cat:'info', id:'loimoore', eq:'N = N0 × 2^(t/2)', name:'Loi de Moore (approx.)', desc:"Estime le doublement du nombre de transistors sur une puce environ tous les deux ans (t en années).",
+    vars:[{k:'N0',label:'Nombre initial N0'},{k:'t',label:"Durée écoulée t (années)"}],
+    compute:(v)=> v.N0*Math.pow(2, v.t/2), resultLabel:'N'},
+
+  { cat:'fluides', id:'pression_fluide', eq:'P = ρ × g × h', name:'Pression hydrostatique', desc:"Pression exercée par une colonne de fluide de densité ρ à une profondeur h (g = 9,80665 m/s²).",
+    vars:[{k:'rho',label:'Masse volumique ρ (kg/m³)'},{k:'h',label:'Profondeur h (m)'}],
+    compute:(v)=> v.rho*G_EARTH*v.h, resultLabel:'P (Pa)'},
+  { cat:'fluides', id:'archimede', eq:'Fa = ρ × V × g', name:"Poussée d'Archimède", desc:"Force de flottabilité exercée par un fluide sur un corps immergé de volume V.",
+    vars:[{k:'rho',label:'Masse volumique du fluide ρ (kg/m³)'},{k:'V',label:'Volume immergé V (m³)'}],
+    compute:(v)=> v.rho*v.V*G_EARTH, resultLabel:'Fa (N)'},
+  { cat:'fluides', id:'bernoulli', eq:'P + ½ρv² + ρgh = cste → P', name:'Équation de Bernoulli (pression)', desc:"Relation de conservation de l'énergie dans un fluide en écoulement (donne la pression statique).",
+    vars:[{k:'rho',label:'Masse volumique ρ (kg/m³)'},{k:'v',label:'Vitesse v (m/s)'},{k:'h',label:'Hauteur h (m)'}],
+    compute:(v)=> -(0.5*v.rho*v.v*v.v + v.rho*G_EARTH*v.h), resultLabel:'P relatif (Pa)'},
+  { cat:'fluides', id:'reynolds', eq:'Re = ρ × v × L / μ', name:'Nombre de Reynolds', desc:"Nombre sans dimension indiquant si un écoulement est laminaire (Re<2000) ou turbulent (Re>4000).",
+    vars:[{k:'rho',label:'Masse volumique ρ (kg/m³)'},{k:'v',label:'Vitesse v (m/s)'},{k:'L',label:'Longueur caractéristique L (m)'},{k:'mu',label:'Viscosité dynamique μ (Pa·s)'}],
+    compute:(v)=> (v.rho*v.v*v.L)/v.mu, resultLabel:'Re (sans unité)'}
+];
+
+function buildFormulaCards(){
+  const grids = { meca:document.getElementById('grid-meca'), elec:document.getElementById('grid-elec'), energie:document.getElementById('grid-energie'), ondes:document.getElementById('grid-ondes'),
+    chimie:document.getElementById('grid-chimie'), astro:document.getElementById('grid-astro'), info:document.getElementById('grid-info'), fluides:document.getElementById('grid-fluides') };
+  FORMULAS.forEach(f=>{
+    const card = document.createElement('div');
+    card.className = 'formula-card';
+    const varsHtml = f.vars.map(v=>`<div><label>${v.label}</label><input type="number" id="fv_${f.id}_${v.k}" step="any" placeholder="0"></div>`).join('');
+    card.innerHTML = `
+      <div class="f-eq">${f.eq}</div>
+      <div class="f-name">${f.name}</div>
+      <div class="f-desc">${f.desc}</div>
+      <div class="f-vars">${varsHtml}</div>
+      <button class="btn alt" style="margin-bottom:10px; width:100%;" onclick="computeFormula('${f.id}')">Calculer ${f.resultLabel}</button>
+      <div class="f-result" id="fres_${f.id}">—</div>
+    `;
+    grids[f.cat].appendChild(card);
+  });
+}
+function computeFormula(id){
+  const f = FORMULAS.find(x=>x.id===id);
+  const vals = {};
+  for(const v of f.vars){
+    const el = document.getElementById(`fv_${id}_${v.k}`);
+    vals[v.k] = parseFloat(el.value);
+    if(isNaN(vals[v.k])){ document.getElementById('fres_'+id).textContent = 'Renseigne toutes les valeurs.'; return; }
+  }
+  const r = f.compute(vals);
+  document.getElementById('fres_'+id).textContent = `${f.resultLabel.split(' ')[0]} = ${fmtNum(r)} ${f.resultLabel.split('(')[1]?.replace(')','')||''}`;
+}
+buildFormulaCards();
+
+/* =========================================================
+   CONVERT'AI — INTÉGRATION OPENROUTER
+========================================================= */
+// ⚠️ SÉCURITÉ : la clé n'est jamais écrite ici. Elle vient de config.js (fichier IGNORÉ par git, voir .gitignore).
+const OPENROUTER_API_KEY = (typeof window.CONVERT_AI_CONFIG !== 'undefined' && window.CONVERT_AI_CONFIG.OPENROUTER_API_KEY)
+  ? window.CONVERT_AI_CONFIG.OPENROUTER_API_KEY
+  : null;
+if(!OPENROUTER_API_KEY){
+  console.warn("Convert'AI : aucune clé API trouvée. Crée un fichier config.js à partir de config.example.js.");
+}
+const OPENROUTER_MODEL = "openai/gpt-4o-mini"; // change le modèle ici si besoin (voir openrouter.ai/models)
+
+let aiConversation = [];
+let aiCurrentContext = "";
+
+function getContextFor(key){
+  switch(key){
+    case 'convert': {
+      const cat = UNIT_DB[currentCat];
+      return `Contexte : conversion d'unités. Catégorie « ${CAT_LABELS[currentCat]} ». `+
+        `${document.getElementById('convResultNote').textContent}. Explique ou vérifie ce résultat, et donne un contexte d'usage utile.`;
+    }
+    case 'calc':
+      return `Contexte : calculatrice scientifique. Expression tapée : "${calcInput.value}". Résultat affiché : ${calcResultLine.textContent}. Explique le calcul ou aide à le corriger.`;
+    case 'lin':
+      return `Contexte : équation linéaire ax+b=0 avec a=${document.getElementById('lin_a').value}, b=${document.getElementById('lin_b').value}. Résultat : ${document.getElementById('lin_result').textContent}`;
+    case 'q':
+      return `Contexte : équation quadratique ax²+bx+c=0 avec a=${document.getElementById('q_a').value}, b=${document.getElementById('q_b').value}, c=${document.getElementById('q_c').value}. Résultat : ${document.getElementById('q_result').textContent}`;
+    case 's2':
+      return `Contexte : système d'équations 2x2. Résultat : ${document.getElementById('s2_result').textContent}`;
+    case 's3':
+      return `Contexte : système d'équations 3x3 (méthode de Cramer). Résultat : ${document.getElementById('s3_result').textContent}`;
+    case 'c':
+      return `Contexte : équation cubique ax³+bx²+cx+d=0. Résultat : ${document.getElementById('c_result').textContent}`;
+    case 'stats':
+      return `Contexte : statistiques sur une série de nombres : ${document.getElementById('stats_input').value}. Résultat : ${document.getElementById('stats_result').textContent}`;
+    case 'vec':
+      return `Contexte : algèbre vectorielle 2D/3D. Résultat de la dernière opération : ${document.getElementById('vec_result').textContent}`;
+    case 'formules':
+      return `Contexte : bibliothèque de formules physiques (mécanique, électricité, énergie, ondes). Explique une formule de ton choix ou réponds à une question de physique.`;
+    default:
+      return "";
+  }
+}
+
+function openAIModal(prefillContext){
+  aiCurrentContext = prefillContext || "";
+  const overlay = document.getElementById('aiModalOverlay');
+  const body = document.getElementById('aiModalBody');
+  overlay.classList.remove('hidden');
+  if(prefillContext){
+    body.innerHTML = `<div class="ai-context"><b>Contexte transmis à Convert'AI :</b>\n${prefillContext}</div>`;
+  } else {
+    body.innerHTML = `<div class="small-note">Pose ta question à Convert'AI.</div>`;
+  }
+  document.getElementById('aiModalInput').focus();
+}
+
+function askAIAbout(key){
+  const ctx = getContextFor(key);
+  openAIModal(ctx);
+}
+
+document.getElementById('aiFab').addEventListener('click', ()=> openAIModal(""));
+document.getElementById('aiModalClose').addEventListener('click', ()=>{
+  document.getElementById('aiModalOverlay').classList.add('hidden');
+});
+document.getElementById('aiModalOverlay').addEventListener('click', (e)=>{
+  if(e.target.id==='aiModalOverlay') document.getElementById('aiModalOverlay').classList.add('hidden');
+});
+
+async function sendToOpenRouter(userMessage, context){
+  const body = document.getElementById('aiModalBody');
+  if(!OPENROUTER_API_KEY){
+    body.innerHTML += `<div class="small-note" style="color:var(--red);">Aucune clé API configurée. Crée un fichier <b>config.js</b> à côté de ce HTML (voir config.example.js) avec ta clé OpenRouter.</div>`;
+    return;
+  }
+  const loadingId = 'load_'+Date.now();
+  body.innerHTML += `<div class="ai-loading" id="${loadingId}"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Convert'AI réfléchit…</div>`;
+  body.scrollTop = body.scrollHeight;
+
+  const systemPrompt = "Tu es Convert'AI, l'assistant intégré à la Centrale de Convertion. Tu aides avec les conversions d'unités, les calculs scientifiques, les équations, les vecteurs et les formules de physique. Réponds en français, de façon claire et concise.";
+  const fullUserMsg = context ? `${context}\n\nQuestion de l'utilisateur : ${userMessage}` : userMessage;
+
+  try{
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+OPENROUTER_API_KEY,
+        "HTTP-Referer": window.location.href,
+        "X-Title":"Centrale de Convertion"
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_MODEL,
+        messages: [
+          {role:"system", content: systemPrompt},
+          {role:"user", content: fullUserMsg}
+        ]
+      })
+    });
+    const data = await response.json();
+    document.getElementById(loadingId)?.remove();
+
+    if(data.error){
+      body.innerHTML += `<div class="small-note" style="color:var(--red);">Erreur OpenRouter : ${data.error.message || 'clé API invalide ou manquante. Renseigne ta clé OpenRouter dans le code (OPENROUTER_API_KEY).'}</div>`;
+    } else {
+      const answer = data.choices?.[0]?.message?.content || "Pas de réponse reçue.";
+      body.innerHTML += `<div class="ai-bubble-ai"><div class="who">✨ Convert'AI</div>${answer.replace(/\n/g,'<br>')}</div>`;
+    }
+  } catch(err){
+    document.getElementById(loadingId)?.remove();
+    body.innerHTML += `<div class="small-note" style="color:var(--red);">Erreur réseau : ${err.message}</div>`;
+  }
+  body.scrollTop = body.scrollHeight;
+}
+
+document.getElementById('aiModalSend').addEventListener('click', ()=>{
+  const input = document.getElementById('aiModalInput');
+  const msg = input.value.trim();
+  if(!msg) return;
+  const body = document.getElementById('aiModalBody');
+  body.innerHTML += `<div class="ai-bubble-user"><div class="who">Toi</div>${msg}</div>`;
+  sendToOpenRouter(msg, aiCurrentContext);
+  aiCurrentContext = ""; // le contexte n'est transmis qu'au premier message
+  input.value = '';
+});
+document.getElementById('aiModalInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('aiModalSend').click();
+});
+</script>
+</body>
+</html>

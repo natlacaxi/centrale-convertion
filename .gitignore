@@ -1,0 +1,7 @@
+# Ne jamais versionner la clé API réelle
+config.js
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+node_modules/
